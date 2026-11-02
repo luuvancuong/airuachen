@@ -65,7 +65,7 @@ Chỉnh ngay trong bảng điều khiển, lưu vào `data/settings.json`:
 | Quà tặng khách mời (multi-guest) | Không tính |
 | Giọng đọc | Bật, giọng Minh Quân, cảm ơn mọi quà, tối đa 1 câu/10 giây (quà dồn thì gộp tên) |
 | Phòng vắng | Sau 20 giây không ai tương tác: nhân vật tự cử động, điện thoại “Ví dụ”, vòng “Máy tự chơi” (không tính điểm); nút “Streamer vào phe” (+5 chén) |
-| Lời dẫn tự động | Bật, 3 phút một câu (±25%), có câu báo giọng AI; nút “Tắt lời dẫn” ở mục Vòng chơi |
+| Lời dẫn tự động | Bật, nói gần như liên tục (lặng 3 giây giữa hai câu), đoạn dẫn mở mỗi vòng mới, tự dừng khi bạn nói (micro hoặc nút “🎙️ Tôi đang nói”) và khi đọc cảm ơn quà; có câu báo giọng AI; nút “Tắt lời dẫn” ở mục Vòng chơi |
 | Nhạc nền | Bật, âm lượng 25, tự tổng hợp (không bản quyền), nhỏ lại khi có giọng đọc |
 
 Comment được nhận khi có nguyên từ khoá của một bên (cả `vkkk`, `VK`…); comment nhắc cả hai bên thì không tính. Bản không dấu (`vo`, `chong`) chỉ tính khi comment chỉ có đúng một từ đó, để “vô”, “chống”… không bị tính nhầm.

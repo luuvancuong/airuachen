@@ -51,7 +51,8 @@
     ttsMinCoins: 1,           // cảm ơn mọi quà (gộp tối đa 1 câu/10 giây), không phân tầng theo tiền
     ttsVoice: '',
     hostEnabled: true,        // lời dẫn tự động (giới thiệu, hướng dẫn, mời tương tác)
-    hostIntervalSec: 180,     // khoảng cách giữa hai câu dẫn (±25% ngẫu nhiên); thưa để không bị coi là xin tương tác máy móc
+    hostGapSec: 3,            // lặng bao nhiêu giây sau mỗi câu dẫn rồi đọc câu sau (người dùng muốn giọng dẫn nói gần như liên tục,
+                              // tự dừng khi streamer nói hoặc khi đọc cảm ơn quà)
     hostLines: [],            // kịch bản riêng, mỗi dòng một câu; rỗng = dùng HOST_LINES
     musicEnabled: true,       // nhạc nền tự tổng hợp (Web Audio), không dùng bài có bản quyền
     musicVolume: 25,          // 0–100
@@ -175,6 +176,37 @@
     if (S.goldenSeconds > 0 && S.goldenMult > 1) lines.push('Ba mươi giây cuối mỗi vòng là giờ vàng, comment và tim được tính gấp đôi!');
     if (S.punishVote) lines.push('Hết vòng cả phòng được bình chọn hình phạt vui cho bên thua bằng comment số một, hai hoặc ba.');
     return lines[((n || 0) % lines.length + lines.length) % lines.length];
+  }
+
+  // Đoạn dẫn mở vòng mới: dài hơn câu thường, hào hứng, có ai đứng rửa trước, tỉ số, thời gian, mẹo chơi.
+  // round, washer lấy từ fx round; score từ state. Chỉ mời comment, không nhắc quà.
+  function roundLine(S, st, round, washer) {
+    const L = S.labels, K = S.keywords;
+    const w = TEAMS.includes(washer) ? washer : 'vk', o = w === 'vk' ? 'ck' : 'vk';
+    const sec = S.roundSeconds;
+    const time = sec % 60 === 0 ? `${sec / 60} phút` : sec > 60 ? `${Math.floor(sec / 60)} phút ${sec % 60} giây` : `${sec} giây`;
+    const sc = st && st.score ? st.score : { vk: 0, ck: 0 };
+    const lines = [
+      `Vòng ${round} bắt đầu! ${L[w]} đứng rửa trước. Trong ${time}, bên nào nhiều chén hơn thì phải rửa. Comment ${K.vk[0]} cho ${L.vk}, ${K.ck[0]} cho ${L.ck}, chiến thôi!`,
+      `Vào vòng ${round} rồi cả nhà ơi! Tỉ số đang ${L.vk} ${sc.vk}, ${L.ck} ${sc.ck}. ${L[w]} đang đứng rửa, muốn cứu ${L[w]} thì comment ${K[o][0]} dồn chén sang ${L[o]} nha!`,
+      `Chuông reo rồi, vòng ${round} chính thức bắt đầu! Ai thương ${L[w]} thì comment ${K[o][0]}, ai muốn ${L[w]} rửa tiếp thì comment ${K[w][0]}. Có ${time} thôi, nhanh tay lên nào!`,
+    ];
+    if (round <= 1) {
+      return `Có người chơi rồi, vòng một bắt đầu! ${L[w]} đứng rửa trước nha. Ai mới vào thì comment ${K.vk[0]} hoặc ${K.ck[0]} để chọn phe, bên nào nhiều chén hơn trong ${time} là phải đi rửa!`;
+    }
+    lines.push(`Vòng ${round}! Vòng trước ${L[w]} thua nên giờ ${L[w]} phải rửa trước. Còn ${time} để lật kèo, phe ${L.vk} gõ ${K.vk[0]}, phe ${L.ck} gõ ${K.ck[0]}, ai mới vào thì chọn phe luôn nha!`);
+    return lines[(round - 2) % lines.length];
+  }
+
+  // Lời dẫn lúc phòng vắng mà máy không chơi (đang ở vòng thật, hoặc tắt máy chơi): đọc liên tục câu theo diễn biến
+  // (mỗi câu thứ ba) xen với câu hướng dẫn không nhắc tới máy và câu dẫn thường không nhắc quà.
+  function idleLine(S, st, n) {
+    n = n || 0;
+    if (n % 3 === 0) { const l = hostStateLine(S, st, n); if (l) return l; }
+    const pool = [];
+    for (let i = 0; i < 24; i++) { const l = warmupLine(S, st, 'tick', i); if (!/máy/i.test(l) && !pool.includes(l)) pool.push(l); }
+    for (let i = 0; i < 24; i++) { const l = hostLine(S, i, { noGift: true }); if (l && !pool.includes(l)) pool.push(l); }
+    return pool.length ? pool[n % pool.length] : null;
   }
 
   // Câu dẫn cố định thứ idx (vòng lại khi hết danh sách), đã điền biến; null nếu danh sách rỗng.
@@ -352,7 +384,7 @@
       ttsMinCoins: Math.round(clamp(s.ttsMinCoins, 0, 1e6, DEFAULTS.ttsMinCoins)),
       ttsVoice: str(s.ttsVoice).replace(/[^A-Za-z0-9_.-]/g, '').slice(0, 64),
       hostEnabled: bool(s.hostEnabled, DEFAULTS.hostEnabled),
-      hostIntervalSec: Math.round(clamp(s.hostIntervalSec, 30, 1800, DEFAULTS.hostIntervalSec)),
+      hostGapSec: Math.round(clamp(s.hostGapSec, 1, 600, DEFAULTS.hostGapSec)),
       hostLines: list(s.hostLines, /\n/).map((l) => cleanText(l, 200, '')).filter(Boolean).slice(0, 40),
       musicEnabled: bool(s.musicEnabled, DEFAULTS.musicEnabled),
       musicVolume: Math.round(clamp(s.musicVolume, 0, 100, DEFAULTS.musicVolume)),
@@ -923,8 +955,26 @@
       return true;
     }
 
+    // Vòng đang chạy mà chưa ai góp chén nào và phòng vắng quá idleSeconds: quay về chờ người chơi đầu tiên,
+    // để máy chơi + lời dẫn hướng dẫn bật lại (không thì vòng trống cứ tự nối nhau mãi). Không đụng tỉ số / lịch sử.
+    function backToReady() {
+      phase = 'ready';
+      washer = lastResult ? lastResult.loser : S.startWasher;
+      endsAt = 0;
+      pausedRemaining = S.roundSeconds * 1000;
+      goldenFired = false;
+      activeEvent = null;
+      nextEventAt = 0;
+      emit({ type: 'idleReady', round });
+      changed();
+    }
+
     function tick() {
       const t = now();
+      if (phase === 'running' && S.warmupAuto && piles.vk === 0 && piles.ck === 0 && !pending.vk && !pending.ck
+        && t - lastActivityAt >= S.idleSeconds * 1000 && endsAt - t > 0) {
+        backToReady();
+      }
       if (phase === 'running') {
         if (t >= endsAt) endRound('timeout');
         else {
@@ -1120,7 +1170,9 @@
         for (const r of o.teams.slice(-maxTeams)) if (Array.isArray(r) && str(r[0]) && TEAMS.includes(r[1])) setTeam(str(r[0]).slice(0, 64), r[1]);
       }
       const p = o.phase;
-      if (p === 'running' || p === 'paused') {
+      // Vòng đang dở mà chưa ai góp chén (0–0, không hàng chờ): khôi phục thành chờ người chơi, khỏi tạm dừng đứng im
+      const emptyRound = !piles.vk && !piles.ck && !pending.vk && !pending.ck;
+      if ((p === 'running' || p === 'paused') && !emptyRound) {
         phase = 'paused';
         pausedRemaining = Math.max(1000, Math.min(S.roundSeconds * 1000, Math.round(clamp(o.remainingMs, 0, 36e5, S.roundSeconds * 1000))));
         pausedAt = t;
@@ -1143,5 +1195,5 @@
     return { handle, control, tick, getState, teamOfUser, getSupporters, exportState, importState };
   }
 
-  return { createEngine, detectTeam, cleanName, cleanText, stripDiacritics, sanitizeSettings, DEFAULTS, TEAMS, EVENT_LABELS, CHARACTERS, SCENES, TIKTOK_GIFTS, giftVi, isBannedName, HOST_LINES, HOST_AI_LINE, hostLine, hostStateLine, warmupLine, isGiftLine: (t) => GIFT_WORDS.test(String(t)) };
+  return { createEngine, detectTeam, cleanName, cleanText, stripDiacritics, sanitizeSettings, DEFAULTS, TEAMS, EVENT_LABELS, CHARACTERS, SCENES, TIKTOK_GIFTS, giftVi, isBannedName, HOST_LINES, HOST_AI_LINE, hostLine, hostStateLine, warmupLine, idleLine, roundLine, isGiftLine: (t) => GIFT_WORDS.test(String(t)) };
 });

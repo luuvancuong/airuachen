@@ -641,7 +641,8 @@ test('Lời dẫn: điền biến, bỏ câu của tính năng đang tắt, kị
   // Câu tự viết nhắc quà mà thiếu “không bắt buộc” thì được nối thêm
   assert.equal(DishGame.hostLine(sanitizeSettings({ hostLines: 'Ủng hộ phe {vk} nha!' }), 0), 'Ủng hộ phe Vợ nha, không bắt buộc nha.');
   assert.equal(DishGame.hostStateLine(sanitizeSettings({}), Object.assign({}, st, { remainingMs: 30000 })), null);
-  assert.equal(sanitizeSettings({ hostIntervalSec: 3 }).hostIntervalSec, 30);
+  assert.equal(sanitizeSettings({ hostGapSec: 0 }).hostGapSec, 1);
+  assert.equal(sanitizeSettings({ hostIntervalSec: 180 }).hostGapSec, 3); // setting cũ bỏ qua
   // Câu nhắc quà bị bỏ khi noGift, và luôn có “không bắt buộc”
   const def = sanitizeSettings({});
   const giftLines = Array.from({ length: 16 }, (_, i) => DishGame.hostLine(def, i)).filter(DishGame.isGiftLine);
@@ -763,4 +764,46 @@ test('Từ cấm có sẵn: chặn tục / lách chữ / cờ bạc, không ch�
   const { e, st } = make({});
   e.handle({ type: 'chat', user: { id: 'x', name: 'Vcl Hùng' }, text: 'vk' });
   assert.equal(st().top.vk[0].name, 'Một bạn');
+});
+
+test('Vòng trống (0–0) mà phòng vắng thì quay về chờ để máy chơi lại, không đụng tỉ số', () => {
+  const { e, clock, fx, st } = make({ warmupAuto: true, idleSeconds: 20, roundSeconds: 180 });
+  e.control('start');
+  assert.equal(st().phase, 'running');
+  clock.t += 19000; e.tick();
+  assert.equal(st().phase, 'running');
+  clock.t += 2000; e.tick();
+  assert.equal(st().phase, 'ready');
+  assert.ok(fx.some((f) => f.type === 'idleReady'));
+  e.tick();
+  assert.equal(st().warmup, true);
+  assert.deepEqual(st().score, { vk: 0, ck: 0 });
+  // Vòng đã có chén thì không quay về, chạy tới hết giờ
+  const g = make({ warmupAuto: true, idleSeconds: 20 });
+  g.e.handle({ type: 'chat', user: { id: 'a', name: 'A' }, text: 'vk' });
+  g.clock.t += 60000; g.e.tick();
+  assert.equal(g.st().phase, 'running');
+});
+
+test('Khôi phục vòng trống (0–0) thành chờ người chơi, vòng có chén vẫn khôi phục tạm dừng', () => {
+  const a = make({ warmupAuto: true });
+  a.e.control('start');
+  const empty = a.e.exportState();
+  const b = make({ warmupAuto: true });
+  b.e.importState(empty);
+  assert.equal(b.st().phase, 'ready');
+  const c = make({ warmupAuto: true });
+  c.e.handle({ type: 'chat', user: { id: 'a', name: 'A' }, text: 'vk' });
+  const d = make({ warmupAuto: true });
+  d.e.importState(c.e.exportState());
+  assert.equal(d.st().phase, 'paused');
+});
+
+test('Đoạn mở vòng: vòng 1 câu riêng, vòng sau xoay vòng, có người rửa và tỉ số, không nhắc quà', () => {
+  const S = sanitizeSettings({});
+  assert.match(DishGame.roundLine(S, { score: { vk: 0, ck: 0 } }, 1, 'vk'), /vòng một bắt đầu! Vợ đứng rửa trước/);
+  const later = [2, 3, 4, 5].map((r) => DishGame.roundLine(S, { score: { vk: 1, ck: 2 } }, r, 'ck'));
+  assert.equal(new Set(later).size, 4);
+  assert.ok(later.some((l) => l.includes('Tỉ số đang Vợ 1, Chồng 2')));
+  assert.ok(later.every((l) => !DishGame.isGiftLine(l)));
 });

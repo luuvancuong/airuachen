@@ -127,69 +127,78 @@ async function loadRoomGifts(c) {
 }
 
 // ---------- Lời dẫn tự động ----------
-// Mỗi hostIntervalSec giây đọc một câu: câu cố định trong kịch bản, cứ câu thứ ba là câu theo diễn biến ván.
-// Không đọc lúc đang hiện kết quả / chờ, và lùi lại nếu vừa có giọng cảm ơn quà. Client ưu tiên giọng quà:
-// đang dẫn mà có quà thì tắt lời dẫn, đọc quà xong một lúc mới đọc lại câu dẫn đó.
-let lastVoiceAt = 0, hostCount = 0, hostStatic = 0;
-// Khoảng chờ tới câu sau (xê dịch ±25% mỗi câu); câu đầu tiên sau ~12 giây.
-let hostGap = 12000, lastHostAt = Date.now();
-let lastAiLineAt = 0, lastGiftLineAt = 0, idleCount = 0;
+// Người dùng muốn giọng dẫn nói gần như liên tục suốt buổi: đọc xong câu này hostGapSec giây (mặc định 3) thì sang câu sau.
+// Dừng khi streamer đang nói (micro hoặc nút “Tôi đang nói”, nói xong 1,5 giây thì đọc tiếp), khi vừa có giọng cảm ơn quà,
+// và lúc hiện kết quả. Chọn câu: máy đang chơi → warmupLine; phòng vắng → idleLine (chỉ mời comment);
+// đang chơi thật → xen câu diễn biến với câu dẫn. Câu báo giọng AI lúc bắt đầu và 30 phút một lần; câu nhắc quà tối đa 15 phút một lần.
+// Client ưu tiên giọng quà: đang dẫn mà có quà thì tắt lời dẫn, đọc quà xong một lúc mới đọc lại câu dẫn đó.
+let lastVoiceAt = 0, hostStatic = 0, playCount = 0, idleCount = 0, hostNextAt = Date.now() + 8000;
+let lastAiLineAt = 0, lastGiftLineAt = 0, announce = null; // announce: đoạn mở vòng chờ đọc (ưu tiên)
 const AI_LINE_EVERY = 30 * 60 * 1000;   // nhắc “giọng đọc AI” khoảng 30 phút một lần
 const GIFT_LINE_EVERY = 15 * 60 * 1000; // câu dẫn nhắc quà tối đa 15 phút một lần
+// Ước lượng thời gian đọc một câu (giọng Vbee tốc độ 1.1 khoảng 14 ký tự/giây) để câu sau không chen ngang câu trước.
+const speakMs = (text) => 1500 + Array.from(text).length * 72;
+
+// Streamer đang nói: bảng điều khiển gửi {t:'talk', on} (tự nghe micro hoặc nút bấm). Overlay tắt lời dẫn ngay.
+let streamerTalking = false, talkEndedAt = 0, talkingWs = null;
+function setTalking(on, ws) {
+  on = !!on;
+  talkingWs = on ? ws || null : null;
+  if (on === streamerTalking) return;
+  streamerTalking = on;
+  if (!on) talkEndedAt = Date.now();
+  broadcast({ t: 'talk', on });
+  stateDirty = true;
+}
+
+// Giữa ván thật: cứ câu thứ hai là câu diễn biến (tỉ số, thời gian), còn lại câu dẫn / hướng dẫn; câu nhắc quà khi đủ 15 phút.
+function playLine(st, now) {
+  playCount += 1;
+  if (playCount % 2 === 0) { const l = DishGame.hostStateLine(settings, st, playCount); if (l) return l; }
+  if (!lastGiftLineAt || now - lastGiftLineAt >= GIFT_LINE_EVERY) {
+    const gift = Array.from({ length: 24 }, (_, i) => DishGame.hostLine(settings, i)).find((l) => l && DishGame.isGiftLine(l));
+    if (gift && playCount % 5 === 4) return gift; // không mở đầu buổi bằng câu nhắc quà
+  }
+  return playCount % 3 === 0 ? DishGame.idleLine(settings, st, playCount * 3 + 1) : DishGame.hostLine(settings, hostStatic++, { noGift: true });
+}
+
 function hostTick() {
   if (!settings || ttsMode() === 'off') return;
   const now = Date.now();
-  // Tắt lời dẫn nhưng vẫn đọc cảm ơn: vẫn báo “giọng đọc AI” khoảng 30 phút một lần
-  if (!settings.hostEnabled && lastAiLineAt && now - lastAiLineAt < AI_LINE_EVERY) return;
   const st = engine.getState();
-  // Phòng vắng: nói thưa hơn bình thường một chút là đủ (tối đa 90 giây một câu), chỉ mời comment, không nhắc quà
-  const idle = st.idleMs >= settings.idleSeconds * 1000;
-  // Vắng: 60–90 giây một câu mời comment (không nhắc quà); không bao giờ dày hơn 60 giây
-  // Máy đang chơi: bình luận gần như liên tục (đọc xong câu này 2–3 giây thì sang câu sau), thay cho lời dẫn thường.
-  // Máy vừa làm đổi người thì câu giải thích được đọc ở lượt kế tiếp.
-  if (settings.hostEnabled && st.warmup && lastAiLineAt && now - lastAiLineAt <= AI_LINE_EVERY) {
-    if (now < warmNextAt || now - lastVoiceAt < 3000) return;
-    // Câu đổi người tối đa 30 giây một lần (máy đổi người khá thường), còn lại là câu hướng dẫn
+  if (st.phase !== 'ready' && st.phase !== 'running') return;
+  if (streamerTalking || now - talkEndedAt < 1500) return; // streamer đang nói: nhường
+  if (now - lastVoiceAt < 3000) return;                    // vừa có giọng cảm ơn quà
+  const aiDue = !lastAiLineAt || now - lastAiLineAt > AI_LINE_EVERY;
+  // Tắt lời dẫn nhưng vẫn đọc cảm ơn: vẫn báo “giọng đọc AI” khoảng 30 phút một lần
+  if (!settings.hostEnabled) { if (aiDue) { lastAiLineAt = now; sendHost(DishGame.HOST_AI_LINE); } return; }
+  if (now < hostNextAt && !announce) return;
+  let text = null;
+  if (announce) { text = announce; announce = null; } // vòng mới: đọc đoạn mở vòng ngay
+  else if (aiDue) { text = DishGame.HOST_AI_LINE; lastAiLineAt = now; }
+  else if (st.warmup) {
+    // Máy vừa làm đổi người thì câu giải thích được đọc ở lượt kế tiếp, tối đa 30 giây một lần
     const swap = warmSwapTeam && now - warmSwapAt < 8000 && now - warmSwapLineAt >= 30000;
-    const text = swap ? DishGame.warmupLine(settings, st, 'swap', warmSwapCount++, warmSwapTeam) : DishGame.warmupLine(settings, st, 'tick', warmCount++);
+    text = swap ? DishGame.warmupLine(settings, st, 'swap', warmSwapCount++, warmSwapTeam) : DishGame.warmupLine(settings, st, 'tick', warmCount++);
     if (swap) warmSwapLineAt = now;
     warmSwapTeam = null;
-    return warmSend(text);
-  }
-  if (settings.hostEnabled && now - lastHostAt < (idle ? Math.max(60000, Math.min(hostGap, 90000)) : hostGap)) return;
-  if (st.phase !== 'ready' && st.phase !== 'running') return;
-  if (now - lastVoiceAt < 8000) return; // vừa có giọng quà: đợi
-  if (!settings.hostEnabled) { lastAiLineAt = now; return sendHost(DishGame.HOST_AI_LINE); }
-  hostGap = settings.hostIntervalSec * 1000 * (0.75 + Math.random() * 0.5); // xê dịch ±25%, không đều như máy
-  let text = null;
-  if (!lastAiLineAt || now - lastAiLineAt > AI_LINE_EVERY) { text = DishGame.HOST_AI_LINE; lastAiLineAt = now; }
-  if (!text && idle) {
-    text = DishGame.hostStateLine(settings, st, idleCount++);
-    if (!text) return; // vắng mà không có câu phù hợp (ví dụ cuối vòng): bỏ lượt, không rơi xuống câu nhắc quà
-  }
-  if (!text && hostCount % 3 === 2) text = DishGame.hostStateLine(settings, st, hostCount);
-  if (!text) text = DishGame.hostLine(settings, hostStatic++, { noGift: lastGiftLineAt && now - lastGiftLineAt < GIFT_LINE_EVERY });
-  hostCount += 1;
+  } else if (st.idleMs >= settings.idleSeconds * 1000) text = DishGame.idleLine(settings, st, idleCount++);
+  else text = playLine(st, now);
   if (!text) return;
   if (DishGame.isGiftLine(text)) lastGiftLineAt = now;
-  lastHostAt = now;
-  sendHost(text);
+  warmSend(text);
 }
-// Lời dẫn lúc máy chơi: câu mở đầu ngay khi máy bắt đầu, câu giải thích khi máy làm đổi người (cách câu trước ≥ 15 giây),
-// còn lại hostTick đọc khoảng 30 giây một câu. Chỉ hướng dẫn và mời comment, không nhắc quà.
-let warmCount = 0, warmNextAt = 0, warmSwapTeam = null, warmSwapAt = 0, warmSwapLineAt = 0, warmSwapCount = 0;
-// Ước lượng thời gian đọc một câu (giọng Vbee tốc độ 1.1 khoảng 14 ký tự/giây) để câu sau không chen ngang câu trước.
-const speakMs = (text) => 1500 + Array.from(text).length * 72;
+setInterval(hostTick, 500);
+
+let warmCount = 0, warmSwapTeam = null, warmSwapAt = 0, warmSwapLineAt = 0, warmSwapCount = 0;
 function warmSend(text) {
-  const now = Date.now();
-  warmNextAt = now + speakMs(text) + 2000 + Math.random() * 1000;
-  lastHostAt = now;
+  hostNextAt = Date.now() + speakMs(text) + settings.hostGapSec * 1000 + Math.random() * 1000;
   sendHost(text);
 }
 function warmupSpeak(kind, team) {
   if (!settings || !settings.hostEnabled || ttsMode() === 'off') return;
   if (kind === 'swap') { warmSwapTeam = team; warmSwapAt = Date.now(); return; } // đọc ở lượt kế tiếp, không chen ngang
-  if (Date.now() - lastVoiceAt < 3000) return; // đang đọc cảm ơn quà
+  if (Date.now() - lastVoiceAt < 3000 || streamerTalking) return; // đang đọc cảm ơn quà / streamer đang nói
   warmSend(DishGame.warmupLine(settings, engine.getState(), kind, warmCount, team));
 }
 
@@ -199,7 +208,6 @@ function sendHost(text) {
     if (r) broadcast({ t: 'fx', fx: { type: 'host', url: r.url, text } });
   }).catch((e) => console.error('[host] lỗi:', e));
 }
-setInterval(hostTick, 1000);
 
 // Tạo sẵn một câu (cùng cách chuẩn hoá với lúc đọc để trúng cache).
 const warmLine = (text) => tts.warm(spellAbbr(text), ttsVoice());
@@ -239,6 +247,8 @@ function onGameFx(fx) {
   // Vòng máy chơi: không cảm ơn, không tạo sẵn tên; chỉ có lời dẫn bình luận + hướng dẫn
   if (fx.type === 'warmup') { if (fx.on && !fx.reset) warmupSpeak('start'); return; }
   if (fx.type === 'swap' && fx.bot) { warmupSpeak('swap', fx.washer); return; }
+  // Vòng mới: đoạn dẫn mở vòng, đọc ở lượt kế tiếp của giọng dẫn (vẫn nhường streamer và giọng quà)
+  if (fx.type === 'round') { if (settings.hostEnabled) announce = DishGame.roundLine(settings, engine.getState(), fx.round, fx.washer); return; }
   if (fx.bot || fx.source === 'bot') return;
   if (fx.type === 'add' && fx.source === 'streamer') { speakParts([`Streamer vào phe ${speakable(settings.labels[fx.team], 12, fx.team)}!`]); return; }
   if (fx.type === 'swap') {
@@ -302,7 +312,10 @@ function warmTts() {
 }
 
 // tts.error: lý do Vbee bị tắt (sai khoá, hết credit…), để bảng điều khiển hiện cho người mở sau.
-const stateOut = () => Object.assign(engine.getState(), { tts: tts.disabled ? { mode: ttsMode(), error: tts.disabled } : { mode: ttsMode() } });
+const stateOut = () => Object.assign(engine.getState(), {
+  tts: tts.disabled ? { mode: ttsMode(), error: tts.disabled } : { mode: ttsMode() },
+  talking: streamerTalking,
+});
 
 // ---------- Lưu / khôi phục phiên ----------
 function saveState() {
@@ -677,6 +690,8 @@ wss.on('connection', (ws, req) => {
         if (live.status === 'connected' || live.status === 'reconnecting') {
           ws.send(JSON.stringify({ t: 'notice', message: 'Đang kết nối live: nút giả lập bị khoá để không tạo người xem giả. Ngắt kết nối nếu muốn thử.' }));
         } else engine.handle(m.event);
+      } else if (m.t === 'talk') {
+        setTalking(m.on, ws); // streamer đang nói: tạm dừng giọng dẫn
       } else if (m.t === 'live' && m.action === 'connect') {
         connectTikTok(m.username);
       } else if (m.t === 'live' && m.action === 'disconnect') {
@@ -687,8 +702,8 @@ wss.on('connection', (ws, req) => {
       console.error('[ws] lỗi xử lý lệnh:', e);
     }
   });
-  ws.on('close', () => clients.delete(ws));
-  ws.on('error', () => clients.delete(ws));
+  ws.on('close', () => { clients.delete(ws); if (talkingWs === ws) setTalking(false); }); // tab báo “đang nói” bị đóng
+  ws.on('error', () => { clients.delete(ws); if (talkingWs === ws) setTalking(false); });
 });
 
 // Cổng bị chiếm / không có quyền: báo rõ rồi thoát, không chạy tiếp như tiến trình “ma” không nghe cổng nào.

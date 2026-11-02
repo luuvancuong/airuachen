@@ -22,7 +22,8 @@ Trò chơi này đúng là có hai phe. Vì vậy **phần quan trọng nhất l
 
 ## Phần mềm đã được chỉnh sẵn
 
-- **Lời dẫn tự động:** mặc định 3 phút một câu, xê dịch ngẫu nhiên ±25%. Đa số câu là hướng dẫn cách chơi và mời comment, thả tim, follow, share.
+- **Lời dẫn tự động:** theo yêu cầu của bạn, giọng dẫn nói gần như liên tục (lặng 3 giây giữa hai câu) và đọc một đoạn mở mỗi vòng mới. Giọng dẫn **tự dừng khi bạn nói** (bật “Tự dừng giọng dẫn khi tôi nói” để nghe micro, hoặc bấm “🎙️ Tôi đang nói”) và khi đọc cảm ơn quà, bạn nói xong thì đọc tiếp. Đa số câu là hướng dẫn cách chơi, diễn biến ván và lời mời comment, thả tim.
+  **Lưu ý rủi ro:** giọng AI nói liên tục làm buổi live dễ trông như “chủ yếu do AI vận hành”. Giọng dẫn chỉ nên lấp chỗ trống; bạn vẫn cần nói chuyện bằng giọng thật thường xuyên. Dùng micro tự dừng để giọng AI luôn nhường bạn.
 - **Câu nhắc quà:** chỉ 2 trên 16 câu, không nêu tên quà cụ thể, tối đa 15 phút một lần, và luôn nói “tặng hay không là tuỳ bạn, không bắt buộc”. Không có câu nào hứa đổi quà lấy thứ gì.
 - **Câu báo giọng AI:** đọc khi bắt đầu và khoảng 30 phút một lần, kèm nhãn “🤖 Giọng đọc AI” ở góc màn hình. TikTok không bắt buộc gắn nhãn khi dùng giọng TTS chung chung, nhưng luật Việt Nam về nội dung AI (hiệu lực 01/03/2026) yêu cầu minh bạch.
 - **Chữ trên màn hình không tôn vinh theo tiền:** không hiện bảng giá “1 xu = n chén”; thẻ quà toàn màn hình chỉ ghi “Cảm ơn!” kèm tên người tặng, không hiện số xu, không có chữ “quà to / siêu quà”; người góp nhiều nhất được gọi “⭐ Fan cứng”, không dùng “đại gia” hay vương miện. Dòng nhắc quà trên overlay chỉ hiện khoảng 1 trên 7 lượt và có “không bắt buộc”.

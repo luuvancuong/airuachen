@@ -1900,11 +1900,13 @@ body.obs #notice { display: none; }
     let count = 0, idx = 0, nextAt = Date.now() + 12000, aiAt = 0, giftAt = 0;
     setInterval(() => {
       const s = lastState;
-      // Máy đang chơi: bình luận + hướng dẫn khoảng 30 giây một câu (câu mở đầu / đổi người do handleFx đọc)
+      // Máy đang chơi: bình luận gần như liên tục, đọc xong câu này 2–3 giây thì sang câu sau (như server)
       if (s && s.warmup && s.settings.hostEnabled && s.settings.ttsEnabled && aiAt) {
-        if (Date.now() - demoWarmAt < 30000 || Voice.busy || Voice.queue.length) return;
-        demoWarmAt = Date.now();
-        Host.push({ text: DishGame.warmupLine(s.settings, s, 'tick', demoWarmCount++) });
+        if (Date.now() < demoWarmNext || Voice.busy || Voice.queue.length || Host.playing || Host.pending) return;
+        const swap = demoSwapTeam && Date.now() - demoWarmSwapAt < 8000 && Date.now() - demoSwapLineAt >= 30000;
+        if (swap) demoSwapLineAt = Date.now();
+        demoWarmSend(swap ? DishGame.warmupLine(s.settings, s, 'swap', demoSwapCount++, demoSwapTeam) : DishGame.warmupLine(s.settings, s, 'tick', demoWarmCount++));
+        demoSwapTeam = null;
         return;
       }
       if (!s || !s.settings.hostEnabled || !s.settings.ttsEnabled || Date.now() < nextAt) return;
@@ -2012,14 +2014,17 @@ body.obs #notice { display: none; }
       this.typing = setTimeout(step, 400);
     },
   };
-  let botSwapAt = 0, demoWarmAt = 0, demoWarmCount = 0;
+  let botSwapAt = 0, demoWarmNext = 0, demoWarmCount = 0, demoSwapTeam = null, demoWarmSwapAt = 0, demoSwapLineAt = 0, demoSwapCount = 0;
+  function demoWarmSend(text) {
+    demoWarmNext = Date.now() + 1500 + Array.from(text).length * 72 + 2500;
+    Host.push({ text });
+  }
   // Bản demo (không server): lời dẫn lúc máy chơi do client tự đọc, cùng nhịp với server
   function demoWarmSpeak(kind, team) {
     const s = lastState;
     if (SERVER || !s || !s.settings.hostEnabled || !s.settings.ttsEnabled) return;
-    if (kind === 'swap' && Date.now() - demoWarmAt < 15000) return;
-    demoWarmAt = Date.now();
-    Host.push({ text: DishGame.warmupLine(s.settings, s, kind, demoWarmCount, team) });
+    if (kind === 'swap') { demoSwapTeam = team; demoWarmSwapAt = Date.now(); return; } // đọc ở lượt kế tiếp
+    demoWarmSend(DishGame.warmupLine(s.settings, s, kind, demoWarmCount, team));
   }
   // Streamer tự chọn phe (người thật, ghi rõ là Streamer)
   function streamerToast(fx) {

@@ -142,16 +142,38 @@
       return `Máy chơi thử cho mọi người xem cách chơi nè! Comment ${K.vk[0]} là ${L.vk} thêm ${per}, comment ${K.ck[0]} là ${L.ck} thêm ${per}.`;
     }
     if (kind === 'swap' && TEAMS.includes(team)) {
-      return `Thấy chưa, ${L[team]} nhiều chén hơn nên phải vào rửa rồi đó! Bên nào nhiều chén hơn là bên đó rửa.`;
+      const o = team === 'vk' ? 'ck' : 'vk';
+      const swaps = [
+        `Thấy chưa, ${L[team]} nhiều chén hơn nên phải vào rửa rồi đó! Bên nào nhiều chén hơn là bên đó rửa.`,
+        `Đổi người rồi! Giờ ${L[team]} nhiều chén hơn nên ${L[team]} đứng rửa, ${L[o]} được nghỉ nha.`,
+        `${L[team]} vừa bị dồn thêm chén, thế là ${L[team]} phải vào rửa! Muốn cứu ${L[team]} thì comment ${K[o][0]}.`,
+      ];
+      return swaps[((n || 0) % swaps.length + swaps.length) % swaps.length];
     }
+    const kv = K.vk[0], kc = K.ck[0];
+    const mins = Math.round(S.roundSeconds / 60);
     const lines = [
-      `Mỗi chữ ${K.vk[0]} là ${per} cho ${L.vk}, mỗi chữ ${K.ck[0]} là ${per} cho ${L.ck}. Đơn giản vậy thôi!`,
+      `Mỗi chữ ${kv} là ${per} cho ${L.vk}, mỗi chữ ${kc} là ${per} cho ${L.ck}. Đơn giản vậy thôi!`,
+      `Bên nào chồng chén cao hơn là bên đó phải đứng rửa. Comment để dồn chén cho bên mình muốn nha!`,
       `Hiện ${L.vk} ${st.piles.vk} chén, ${L.ck} ${st.piles.ck} chén. Đây là máy chơi thôi, có người comment là tính thật liền!`,
-      `Muốn ${L.vk} thoát rửa chén thì comment ${K.ck[0]} dồn chén cho ${L.ck}, muốn ${L.ck} thoát thì comment ${K.vk[0]} nha!`,
+      `Muốn ${L.vk} thoát rửa chén thì comment ${kc} dồn chén cho ${L.ck}, muốn ${L.ck} thoát thì comment ${kv} nha!`,
       'Chỉ cần một comment thật là vòng chơi thật bắt đầu, chén của máy sẽ xoá về không.',
-      `Hết giờ, bên nào còn nhiều chén hơn thì phải rửa. Comment ${K.vk[0]} hay ${K.ck[0]} để vào chơi nào!`,
+      `Phe ${L.vk} hay phe ${L.ck}? Comment ${kv} hoặc ${kc} để cho mọi người biết bạn đứng về phe nào!`,
+      `Mỗi vòng khoảng ${mins} phút, hết giờ bên nào còn nhiều chén hơn thì phải rửa.`,
+      'Đây chỉ là máy chơi minh hoạ thôi, chén của máy không tính điểm đâu nha.',
+      `Chỉ cần gõ đúng chữ ${kv} hoặc ${kc} là được, không cần gõ gì thêm.`,
+      `${L.vk} ${st.piles.vk}, ${L.ck} ${st.piles.ck}, máy chơi một mình buồn quá, vào chơi cùng đi nè!`,
+      `Ai thương ${L.vk} thì comment ${kc}, ai thương ${L.ck} thì comment ${kv}, đẩy chén sang bên kia!`,
+      `Gõ ${kv} nhiều lần cũng được tính, mỗi người một chén mỗi giây nha.`,
+      'Thua thì đi rửa chén thôi, vui là chính, không ai mất gì đâu!',
+      `Comment ${kv} hay ${kc} để vào chơi nào, máy nhường sân cho bạn liền!`,
     ];
-    if (S.likesPerDish > 0) lines.push('Thả tim cũng được tính chén cho phe bạn đã chọn nha.');
+    if (S.likesPerDish > 0) {
+      lines.push('Thả tim cũng được tính chén cho phe bạn đã chọn nha.');
+      lines.push('Chọn phe một lần là được ghi nhớ, thả tim sau đó cũng cộng chén cho phe bạn.');
+    }
+    if (S.goldenSeconds > 0 && S.goldenMult > 1) lines.push('Ba mươi giây cuối mỗi vòng là giờ vàng, comment và tim được tính gấp đôi!');
+    if (S.punishVote) lines.push('Hết vòng cả phòng được bình chọn hình phạt vui cho bên thua bằng comment số một, hai hoặc ba.');
     return lines[((n || 0) % lines.length + lines.length) % lines.length];
   }
 

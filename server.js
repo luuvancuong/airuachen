@@ -145,11 +145,16 @@ function hostTick() {
   // Phòng vắng: nói thưa hơn bình thường một chút là đủ (tối đa 90 giây một câu), chỉ mời comment, không nhắc quà
   const idle = st.idleMs >= settings.idleSeconds * 1000;
   // Vắng: 60–90 giây một câu mời comment (không nhắc quà); không bao giờ dày hơn 60 giây
-  // Máy đang chơi: bình luận khoảng 30 giây một câu (±20%), thay cho lời dẫn thường
+  // Máy đang chơi: bình luận gần như liên tục (đọc xong câu này 2–3 giây thì sang câu sau), thay cho lời dẫn thường.
+  // Máy vừa làm đổi người thì câu giải thích được đọc ở lượt kế tiếp.
   if (settings.hostEnabled && st.warmup && lastAiLineAt && now - lastAiLineAt <= AI_LINE_EVERY) {
-    if (now - lastWarmLineAt < 30000 * (0.8 + ((warmCount * 7) % 5) / 10) || now - lastVoiceAt < 8000) return;
-    lastWarmLineAt = now; lastHostAt = now;
-    return sendHost(DishGame.warmupLine(settings, st, 'tick', warmCount++));
+    if (now < warmNextAt || now - lastVoiceAt < 3000) return;
+    // Câu đổi người tối đa 30 giây một lần (máy đổi người khá thường), còn lại là câu hướng dẫn
+    const swap = warmSwapTeam && now - warmSwapAt < 8000 && now - warmSwapLineAt >= 30000;
+    const text = swap ? DishGame.warmupLine(settings, st, 'swap', warmSwapCount++, warmSwapTeam) : DishGame.warmupLine(settings, st, 'tick', warmCount++);
+    if (swap) warmSwapLineAt = now;
+    warmSwapTeam = null;
+    return warmSend(text);
   }
   if (settings.hostEnabled && now - lastHostAt < (idle ? Math.max(60000, Math.min(hostGap, 90000)) : hostGap)) return;
   if (st.phase !== 'ready' && st.phase !== 'running') return;
@@ -172,16 +177,20 @@ function hostTick() {
 }
 // Lời dẫn lúc máy chơi: câu mở đầu ngay khi máy bắt đầu, câu giải thích khi máy làm đổi người (cách câu trước ≥ 15 giây),
 // còn lại hostTick đọc khoảng 30 giây một câu. Chỉ hướng dẫn và mời comment, không nhắc quà.
-let lastWarmLineAt = 0, warmCount = 0;
-function warmupSpeak(kind, team) {
-  if (!settings || !settings.hostEnabled || ttsMode() === 'off') return;
+let warmCount = 0, warmNextAt = 0, warmSwapTeam = null, warmSwapAt = 0, warmSwapLineAt = 0, warmSwapCount = 0;
+// Ước lượng thời gian đọc một câu (giọng Vbee tốc độ 1.1 khoảng 14 ký tự/giây) để câu sau không chen ngang câu trước.
+const speakMs = (text) => 1500 + Array.from(text).length * 72;
+function warmSend(text) {
   const now = Date.now();
-  if (kind === 'swap' && now - lastWarmLineAt < 15000) return;
-  if (now - lastVoiceAt < 4000) return; // đang đọc cảm ơn quà
-  const text = DishGame.warmupLine(settings, engine.getState(), kind, warmCount, team);
-  lastWarmLineAt = now;
+  warmNextAt = now + speakMs(text) + 2000 + Math.random() * 1000;
   lastHostAt = now;
   sendHost(text);
+}
+function warmupSpeak(kind, team) {
+  if (!settings || !settings.hostEnabled || ttsMode() === 'off') return;
+  if (kind === 'swap') { warmSwapTeam = team; warmSwapAt = Date.now(); return; } // đọc ở lượt kế tiếp, không chen ngang
+  if (Date.now() - lastVoiceAt < 3000) return; // đang đọc cảm ơn quà
+  warmSend(DishGame.warmupLine(settings, engine.getState(), kind, warmCount, team));
 }
 
 function sendHost(text) {
@@ -202,8 +211,9 @@ function warmHost() {
   // Câu lúc máy chơi (trừ câu có tỉ số, đổi theo ván)
   const fake = { piles: { vk: 0, ck: 0 } };
   warmLine(DishGame.warmupLine(settings, fake, 'start'));
-  for (const t of ['vk', 'ck']) warmLine(DishGame.warmupLine(settings, fake, 'swap', 0, t));
-  for (let i = 0; i < 6; i++) if (i !== 1) warmLine(DishGame.warmupLine(settings, fake, 'tick', i));
+  for (const t of ['vk', 'ck']) for (let i = 0; i < 3; i++) warmLine(DishGame.warmupLine(settings, fake, 'swap', i, t));
+  // Tạo sẵn mọi câu không có con số (câu có tỉ số đổi theo ván, tạo khi đọc)
+  for (let i = 0; i < 20; i++) { const l = DishGame.warmupLine(settings, fake, 'tick', i); if (!/\d/.test(l)) warmLine(l); }
   for (let i = 0; i < 40; i++) {
     const line = DishGame.hostLine(settings, i);
     if (!line) break;

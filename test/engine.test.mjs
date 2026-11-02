@@ -748,8 +748,8 @@ test('Lời dẫn lúc máy chơi: mở đầu hướng dẫn, đổi người g
   const st = { piles: { vk: 3, ck: 5 } };
   assert.match(DishGame.warmupLine(S, st, 'start'), /comment anh là Anh thêm một chén/i);
   assert.match(DishGame.warmupLine(S, st, 'swap', 0, 'ck'), /Em nhiều chén hơn nên phải vào rửa/);
-  const ticks = Array.from({ length: 6 }, (_, i) => DishGame.warmupLine(S, st, 'tick', i));
-  assert.equal(new Set(ticks).size, 6);
+  const ticks = Array.from({ length: 18 }, (_, i) => DishGame.warmupLine(S, st, 'tick', i));
+  assert.equal(new Set(ticks).size, 18); // đủ nhiều câu để đọc liên tục không lặp sớm
   assert.ok(ticks.some((l) => l.includes('Anh 3 chén, Em 5 chén')));
   assert.ok(ticks.every((l) => !DishGame.isGiftLine(l)));
 });

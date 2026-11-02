@@ -256,8 +256,8 @@ svg.layer { display: block; }
 #splash i { position: absolute; width: 18px; height: 22px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; background: #8FD6F5; border: 3px solid #241B3A; animation: splash .9s ease-out forwards; }
 @keyframes splash { from { transform: translate(0, 0); opacity: 1; } to { transform: translate(var(--dx), var(--dy)); opacity: 0; } }
 #demo-phone { position: absolute; left: 20px; top: 850px; width: 222px; height: 262px; opacity: 0; transform: scale(.8); transition: opacity .4s, transform .4s; }
-#stage[data-idle] #demo-phone.on { opacity: 1; transform: none; }
-#demo-phone .dp-tag { position: absolute; left: -8px; top: -14px; z-index: 2; background: var(--soap); border: 4px solid #241B3A; border-radius: 999px; padding: 0 14px 2px; font-size: 30px; font-weight: 900; transform: rotate(-6deg); }
+#demo-phone.on { opacity: 1; transform: none; }
+#demo-phone .dp-tag { position: absolute; left: -8px; top: -14px; z-index: 2; white-space: nowrap; background: var(--soap); border: 4px solid #241B3A; border-radius: 999px; padding: 0 14px 2px; font-size: 28px; font-weight: 900; transform: rotate(-6deg); }
 #demo-phone .dp-screen { position: absolute; inset: 0 0 52px 0; background: #2B2142; border: 6px solid #241B3A; border-radius: 30px; box-shadow: 0 8px 0 #241B3A; overflow: hidden; }
 #demo-phone .dp-live { position: absolute; right: 14px; top: 12px; background: #FF3B5C; color: #fff; font-size: 20px; font-weight: 900; border-radius: 6px; padding: 0 8px; }
 #demo-phone .dp-bubble { position: absolute; left: 12px; right: 12px; bottom: 16px; background: rgba(255, 255, 255, .95); border-radius: 18px; padding: 8px 12px; font-size: 34px; font-weight: 800; color: #241B3A; white-space: nowrap; overflow: hidden; }
@@ -801,7 +801,7 @@ body.obs #notice { display: none; }
         <div id="splash"></div>
         <div id="demo-phone">
           <div class="dp-tag">Ví dụ</div>
-          <div class="dp-screen"><div class="dp-live">LIVE</div><div class="dp-bubble"><b>Bạn:</b> <span class="dp-text"></span><i class="dp-caret"></i></div></div>
+          <div class="dp-screen"><div class="dp-live">LIVE</div><div class="dp-bubble"><b class="dp-who">Bạn:</b> <span class="dp-text"></span><i class="dp-caret"></i></div></div>
           <div class="dp-hint">Gõ là có chén!</div>
         </div>
         <div id="warm-chip">🤖 Máy tự chơi khởi động</div>
@@ -1791,6 +1791,7 @@ body.obs #notice { display: none; }
         if (fx.queued) { if (fx.source === 'gift' || fx.source === 'rescue') { toast(fx); Sfx.gift(Math.abs(fx.n)); GiftFx.gift(fx); } break; }
         floater(fx);
         bump(fx.team);
+        if (fx.source === 'bot') Idle.botComment(fx);
         if (fx.source === 'streamer') { streamerToast(fx); Sfx.gift(fx.n); }
         else if (fx.source === 'gift' || fx.source === 'rescue') {
           toast(fx);
@@ -1823,7 +1824,13 @@ body.obs #notice { display: none; }
         if (fx.stage === 'closed') Sfx.bell(); else Sfx.tick();
         break;
       case 'swap':
-        if (fx.bot) { hop(); Sfx.clink(); break; } // vòng máy tự chơi: nhẹ nhàng, không banner
+        if (fx.bot) {
+          // Máy chơi thử cũng đổi người như thật, banner ghi rõ là máy; tối đa 1 banner mỗi 4 giây
+          hop();
+          if (Date.now() - botSwapAt > 4000) { botSwapAt = Date.now(); showBanner('Đổi người!', `${label(fx.washer)} vào rửa · máy chơi thử`, fx.washer); Sfx.crash(); }
+          else Sfx.clink();
+          break;
+        }
         showBanner('Đổi người!', `${label(fx.washer)} vào rửa`, fx.washer);
         Sfx.crash();
         hop();
@@ -1914,8 +1921,15 @@ body.obs #notice { display: none; }
     sync(s) {
       const st = s.settings;
       const want = !!st.idleAnim && (s.phase === 'ready' || s.phase === 'running') && s.idleMs >= st.idleSeconds * 1000;
-      // Điện thoại ví dụ nằm bên trái: ẩn khi chồng chén bên trái đã cao (bật trước start() để lần gõ đầu chạy ngay)
-      $('#demo-phone').classList.toggle('on', want && (s.piles.vk || 0) < 9);
+      // Điện thoại bên trái: lúc máy chơi thử thì gõ theo từng lượt của máy (chén tăng thật), lúc vắng giữa vòng thật thì
+      // chỉ là ví dụ (không cộng chén). Ẩn khi chồng chén bên trái đã cao. Bật trước start() để lần gõ đầu chạy ngay.
+      const phone = $('#demo-phone');
+      phone.classList.toggle('on', (want || !!s.warmup) && (s.piles.vk || 0) < 12);
+      if (phone.dataset.mode !== (s.warmup ? 'bot' : 'demo')) {
+        phone.dataset.mode = s.warmup ? 'bot' : 'demo';
+        phone.querySelector('.dp-tag').textContent = s.warmup ? '🤖 Máy chơi thử' : 'Ví dụ';
+        phone.querySelector('.dp-who').textContent = s.warmup ? 'Máy:' : 'Bạn:';
+      }
       if (want !== this.on) {
         this.on = want;
         stage.toggleAttribute('data-idle', want);
@@ -1951,9 +1965,28 @@ body.obs #notice { display: none; }
         Sfx.clink();
       } else hop();
     },
+    // Một lượt chơi của máy: hiện từ khoá vừa “gõ”, đĩa bay vào chồng chén (engine đã cộng chén thật)
+    botComment(fx) {
+      const phone = $('#demo-phone');
+      if (!phone.classList.contains('on')) return;
+      clearTimeout(this.typing);
+      phone.querySelector('.dp-text').textContent = fx.keyword || '';
+      const bubble = phone.querySelector('.dp-bubble');
+      bubble.classList.remove('sent'); void bubble.offsetWidth; bubble.classList.add('sent');
+      this.fly(fx.team);
+    },
+    fly(t) {
+      const p = document.createElement('i');
+      p.className = 'dp-plate';
+      p.style.left = '140px'; p.style.top = '1040px';
+      p.style.setProperty('--tx', `${(t === 'vk' ? 120 : 870) - 140}px`);
+      p.style.setProperty('--ty', '190px');
+      $('#idle-fx').appendChild(p);
+      setTimeout(() => p.remove(), 950);
+    },
     phone() {
       const st = lastState && lastState.settings;
-      if (!st || !$('#demo-phone').classList.contains('on')) return;
+      if (!st || lastState.warmup || !$('#demo-phone').classList.contains('on')) return; // lúc máy chơi thử thì điện thoại chạy theo máy
       const t = this.phoneTeam;
       this.phoneTeam = t === 'vk' ? 'ck' : 'vk';
       const word = Array.from(st.keywords[t][0]);
@@ -1963,18 +1996,12 @@ body.obs #notice { display: none; }
       const step = () => {
         if (i < word.length) { txt.textContent += word[i++]; this.typing = setTimeout(step, 280); return; }
         bubble.classList.remove('sent'); void bubble.offsetWidth; bubble.classList.add('sent');
-        // Đĩa minh hoạ bay từ điện thoại về chồng chén của bên đó (chỉ là hình, không cộng chén)
-        const p = document.createElement('i');
-        p.className = 'dp-plate';
-        p.style.left = '140px'; p.style.top = '1040px';
-        p.style.setProperty('--tx', `${(t === 'vk' ? 120 : 870) - 140}px`);
-        p.style.setProperty('--ty', '190px');
-        $('#idle-fx').appendChild(p);
-        setTimeout(() => p.remove(), 950);
+        this.fly(t); // đĩa minh hoạ (chỉ là hình, không cộng chén)
       };
       this.typing = setTimeout(step, 400);
     },
   };
+  let botSwapAt = 0;
   // Streamer tự chọn phe (người thật, ghi rõ là Streamer)
   function streamerToast(fx) {
     const el = document.createElement('div');

@@ -870,8 +870,9 @@
       }
     }
 
-    // Vòng khởi động: máy cộng 1–3 chén cho một bên mỗi 1,2–3 giây, giữ hai bên sát nhau cho vui mắt.
-    // Không có tên người xem, không đọc cảm ơn, quá 60 chén thì về 0. Có người chơi thật là dừng (startRound).
+    // Vòng khởi động: máy “comment” từ khoá của một bên mỗi 0,9–2,2 giây, cộng chén y như comment thật
+    // (dishesPerComment), giữ hai bên sát nhau để hay đổi người. Không có tên người xem, không đọc cảm ơn,
+    // tổng quá 24 chén thì về 0 (chồng chén thấp, không che điện thoại ví dụ). Có người chơi thật là dừng (startRound).
     function tickWarmup(t) {
       if (!warmup) {
         if (!S.warmupAuto || t - lastActivityAt < S.idleSeconds * 1000) return;
@@ -883,15 +884,15 @@
       }
       if (!S.warmupAuto) { warmup = false; piles = { vk: 0, ck: 0 }; emit({ type: 'warmup', on: false }); changed(); return; }
       if (t < botNextAt) return;
-      botNextAt = t + 1200 + random() * 1800;
+      botNextAt = t + 900 + random() * 1300;
       const d = piles.vk - piles.ck;
-      const team = d > 6 ? 'ck' : d < -6 ? 'vk' : random() < 0.5 ? 'vk' : 'ck';
-      const n = 1 + Math.floor(random() * 3);
+      const team = d > 3 ? 'ck' : d < -3 ? 'vk' : random() < 0.5 ? 'vk' : 'ck';
+      const n = Math.max(1, S.dishesPerComment);
       piles[team] += n;
-      emit({ type: 'add', team, n, user: { name: 'Máy' }, source: 'bot', giftName: null, count: 1, coins: 0 });
+      emit({ type: 'add', team, n, user: { name: 'Máy' }, source: 'bot', keyword: S.keywords[team][0], giftName: null, count: 1, coins: 0 });
       const lead = piles.vk > piles.ck ? 'vk' : piles.ck > piles.vk ? 'ck' : washer;
       if (lead !== washer) { washer = lead; emit({ type: 'swap', washer, bot: true }); }
-      if (piles.vk + piles.ck > 60) { piles = { vk: 0, ck: 0 }; washer = S.startWasher; emit({ type: 'warmup', on: true, reset: true }); }
+      if (piles.vk + piles.ck > 24) { piles = { vk: 0, ck: 0 }; washer = S.startWasher; emit({ type: 'warmup', on: true, reset: true }); }
       changed();
     }
 

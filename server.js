@@ -133,7 +133,8 @@ async function loadRoomGifts(c) {
 // đang chơi thật → xen câu diễn biến với câu dẫn. Câu báo giọng AI lúc bắt đầu và 30 phút một lần; câu nhắc quà tối đa 15 phút một lần.
 // Client ưu tiên giọng quà: đang dẫn mà có quà thì tắt lời dẫn, đọc quà xong một lúc mới đọc lại câu dẫn đó.
 let lastVoiceAt = 0, hostStatic = 0, playCount = 0, idleCount = 0, hostNextAt = Date.now() + 8000;
-let lastAiLineAt = 0, lastGiftLineAt = 0, announce = null; // announce: đoạn mở vòng chờ đọc (ưu tiên)
+let lastAiLineAt = 0, lastGiftLineAt = 0, lastHeartAt = 0, announce = null;
+const HEART_EVERY = 90 * 1000;          // câu kêu gọi thả tim tối đa ~90 giây một lần (không xin tương tác dồn dập) // announce: đoạn mở vòng chờ đọc (ưu tiên)
 const AI_LINE_EVERY = 30 * 60 * 1000;   // nhắc “giọng đọc AI” khoảng 30 phút một lần
 const GIFT_LINE_EVERY = 15 * 60 * 1000; // câu dẫn nhắc quà tối đa 15 phút một lần
 // Ước lượng thời gian đọc một câu (giọng Vbee tốc độ 1.1 khoảng 14 ký tự/giây) để câu sau không chen ngang câu trước.
@@ -176,16 +177,21 @@ function hostTick() {
   let text = null;
   if (announce) { text = announce; announce = null; } // vòng mới: đọc đoạn mở vòng ngay
   else if (aiDue) { text = DishGame.HOST_AI_LINE; lastAiLineAt = now; }
-  else if (st.warmup) {
-    // Máy vừa làm đổi người thì câu giải thích được đọc ở lượt kế tiếp, tối đa 30 giây một lần
-    const swap = warmSwapTeam && now - warmSwapAt < 8000 && now - warmSwapLineAt >= 30000;
-    text = swap ? DishGame.warmupLine(settings, st, 'swap', warmSwapCount++, warmSwapTeam) : DishGame.warmupLine(settings, st, 'tick', warmCount++);
-    if (swap) warmSwapLineAt = now;
-    warmSwapTeam = null;
-  } else if (st.idleMs >= settings.idleSeconds * 1000) text = DishGame.idleLine(settings, st, idleCount++);
-  else text = playLine(st, now);
+  else {
+    // Câu về tim chưa đủ 90 giây thì lấy câu kế tiếp
+    const pick = (fn) => { for (let i = 0; i < 6; i++) { const t = fn(); if (t && !(DishGame.isHeartLine(t) && now - lastHeartAt < HEART_EVERY)) return t; } return null; };
+    if (st.warmup) {
+      // Máy vừa làm đổi người thì câu giải thích được đọc ở lượt kế tiếp, tối đa 30 giây một lần
+      const swap = warmSwapTeam && now - warmSwapAt < 8000 && now - warmSwapLineAt >= 30000;
+      text = swap ? DishGame.warmupLine(settings, st, 'swap', warmSwapCount++, warmSwapTeam) : pick(() => DishGame.warmupLine(settings, st, 'tick', warmCount++));
+      if (swap) warmSwapLineAt = now;
+      warmSwapTeam = null;
+    } else if (st.idleMs >= settings.idleSeconds * 1000) text = pick(() => DishGame.idleLine(settings, st, idleCount++));
+    else text = pick(() => playLine(st, now));
+  }
   if (!text) return;
   if (DishGame.isGiftLine(text)) lastGiftLineAt = now;
+  if (DishGame.isHeartLine(text)) lastHeartAt = now;
   warmSend(text);
 }
 setInterval(hostTick, 500);

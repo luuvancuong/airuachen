@@ -28,7 +28,7 @@
     resultSeconds: 10,        // thời gian hiện bảng kết quả (đủ cho giọng đọc kết quả)
     autoNextRound: true,      // tự sang vòng mới
     startWasher: 'vk',        // người rửa ở vòng đầu
-    likesPerDish: 20,         // số tim đổi 1 chén (0 = tắt)
+    likesPerDish: 10,         // số tim đổi 1 chén (0 = tắt); người xem comment chọn phe trước, tim sau đó cộng cho phe đó
     likeCapPerRound: 600,     // số tim tối đa được tính mỗi người mỗi vòng (0 = không giới hạn)
     dishesPerFollow: 0,       // chén cho mỗi follow (0 = tắt), mỗi người 1 lần/vòng. Mặc định tắt: thưởng điểm đổi follow dễ bị coi là trao đổi tương tác
     dishesPerShare: 0,        // chén cho mỗi share (0 = tắt), mỗi người 1 lần/vòng. Mặc định tắt, cùng lý do
@@ -91,7 +91,8 @@
     { text: 'Cách chơi siêu dễ: comment {kvk} để thêm chén cho {vk}, comment {kck} để thêm chén cho {ck}.' },
     { text: 'Bên nào nhiều chén hơn thì phải đứng rửa. Hết giờ mà vẫn nhiều chén hơn là thua nha!' },
     { text: 'Mới vào thì chọn phe đi nè, gõ {kvk} hoặc {kck} là được!' },
-    { text: 'Thả tim cũng được tính chén cho phe mình nữa nha.', when: 'likes' },
+    { text: 'Comment {kvk} hoặc {kck} để chọn phe, rồi thả tim liên tục nha, cứ {likes} tim là thêm một chén cho phe bạn!', when: 'likes' },
+    { text: 'Đã chọn phe rồi thì thả tim đi nè, tim nào cũng thành chén, {likes} tim là một chén cho phe mình!', when: 'likes' },
     { text: 'Ai đang đứng về phe {vk}, điểm danh bằng một chữ {kvk} nào!' },
     { text: 'Phe {ck} đâu rồi, cho xem sức mạnh bằng chữ {kck} đi!' },
     { text: 'Quà TikTok cũng được tính thành chén cho phe bạn đã chọn. Tặng hay không là tuỳ bạn, không bắt buộc, chơi vui như nhau nha!', gift: true },
@@ -170,8 +171,8 @@
       `Comment ${kv} hay ${kc} để vào chơi nào, máy nhường sân cho bạn liền!`,
     ];
     if (S.likesPerDish > 0) {
-      lines.push('Thả tim cũng được tính chén cho phe bạn đã chọn nha.');
-      lines.push('Chọn phe một lần là được ghi nhớ, thả tim sau đó cũng cộng chén cho phe bạn.');
+      lines.push(`Comment ${kv} hoặc ${kc} để chọn phe trước, rồi thả tim liên tục nha, cứ ${S.likesPerDish} tim là thêm một chén!`);
+      lines.push(`Chọn phe một lần là được ghi nhớ, thả tim sau đó cứ ${S.likesPerDish} tim là một chén cho phe bạn.`);
     }
     if (S.goldenSeconds > 0 && S.goldenMult > 1) lines.push('Ba mươi giây cuối mỗi vòng là giờ vàng, comment và tim được tính gấp đôi!');
     if (S.punishVote) lines.push('Hết vòng cả phòng được bình chọn hình phạt vui cho bên thua bằng comment số một, hai hoặc ba.');
@@ -229,9 +230,10 @@
     const vars = {
       vk: S.labels.vk, ck: S.labels.ck, kvk: S.keywords.vk[0], kck: S.keywords.ck[0],
       rescue: S.rescueGifts.length ? giftVi(S.rescueGifts[0]) : 'quà cứu nguy',
+      likes: String(S.likesPerDish),
     };
     const tpl = list[((idx % list.length) + list.length) % list.length].text;
-    return tpl.replace(/\{(vk|ck|kvk|kck|rescue)\}/g, (_, k) => vars[k]);
+    return tpl.replace(/\{(vk|ck|kvk|kck|rescue|likes)\}/g, (_, k) => vars[k]);
   }
 
   // Các kiểu nhân vật overlay vẽ được (charSVG trong index.html).
@@ -1195,5 +1197,5 @@
     return { handle, control, tick, getState, teamOfUser, getSupporters, exportState, importState };
   }
 
-  return { createEngine, detectTeam, cleanName, cleanText, stripDiacritics, sanitizeSettings, DEFAULTS, TEAMS, EVENT_LABELS, CHARACTERS, SCENES, TIKTOK_GIFTS, giftVi, isBannedName, HOST_LINES, HOST_AI_LINE, hostLine, hostStateLine, warmupLine, idleLine, roundLine, isGiftLine: (t) => GIFT_WORDS.test(String(t)) };
+  return { createEngine, detectTeam, cleanName, cleanText, stripDiacritics, sanitizeSettings, DEFAULTS, TEAMS, EVENT_LABELS, CHARACTERS, SCENES, TIKTOK_GIFTS, giftVi, isBannedName, HOST_LINES, HOST_AI_LINE, hostLine, hostStateLine, warmupLine, idleLine, roundLine, isGiftLine: (t) => GIFT_WORDS.test(String(t)), isHeartLine: (t) => /thả tim/i.test(String(t)) };
 });

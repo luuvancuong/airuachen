@@ -992,7 +992,7 @@ body.obs #notice { display: none; }
           <div><label for="f-musicvol">Âm lượng nhạc nền (0–100)</label><input id="f-musicvol" name="musicVolume" type="number" min="0" max="100" step="5" required></div>
           <div class="full"><label class="check"><input type="checkbox" name="musicEnabled" id="f-music"> Nhạc nền nhỏ (tự tổng hợp, không dùng bài có bản quyền)</label></div>
           <div class="full"><label for="f-hostlines">Kịch bản riêng, mỗi dòng một câu (để trống = dùng kịch bản mặc định)</label>
-            <textarea id="f-hostlines" name="hostLines" rows="4" placeholder="Có thể dùng {vk} {ck} (tên hai bên), {kvk} {kck} (từ khoá), {rescue} (quà cứu nguy)"></textarea></div>
+            <textarea id="f-hostlines" name="hostLines" rows="4" placeholder="Có thể dùng {vk} {ck} (tên hai bên), {kvk} {kck} (từ khoá), {rescue} (quà cứu nguy), {likes} (số tim đổi một chén)"></textarea></div>
           <details class="full host-default"><summary>Xem kịch bản mặc định</summary><ol id="host-default"></ol></details>
           <div class="full"><label for="f-banned">Từ cấm thêm (đã có sẵn danh sách chửi tục, xúc phạm, cờ bạc, lừa đảo; thêm từ riêng của bạn ở đây)</label><textarea id="f-banned" name="bannedWords" rows="2" placeholder="Cách nhau bằng dấu phẩy"></textarea></div>
           <p class="hint">Giọng dẫn nói gần như liên tục: đọc xong một câu, lặng vài giây rồi sang câu sau. Tự dừng khi bạn đang nói (bật “Tự dừng khi tôi nói” ở mục Âm thanh, hoặc bấm “🎙️ Tôi đang nói”) và khi đọc cảm ơn quà. Câu nhắc quà tối đa 15 phút một lần và luôn nói “không bắt buộc”, câu báo giọng AI khi bắt đầu và khoảng 30 phút một lần. Link, số điện thoại trong tên không được đọc.</p>
@@ -1917,7 +1917,7 @@ body.obs #notice { display: none; }
   }
   // Bản demo không có server: tự lập lịch lời dẫn như server (giọng trình duyệt), nói gần như liên tục
   if (!SERVER) {
-    let aiAt = 0, giftAt = 0, playN = 0, idleN = 0, staticN = 0, started = false;
+    let aiAt = 0, giftAt = 0, heartAt = 0, playN = 0, idleN = 0, staticN = 0, started = false;
     setInterval(() => {
       if (!started) { started = true; demoWarmNext = Date.now() + 8000; return; } // câu đầu sau ~8 giây
       const s = lastState;
@@ -1929,24 +1929,28 @@ body.obs #notice { display: none; }
       if (!st.hostEnabled) { if (aiDue) { aiAt = now; Host.push({ text: DishGame.HOST_AI_LINE }); } return; }
       if (now < demoWarmNext && !demoAnnounce) return;
       let text = null;
+      // Câu về tim chưa đủ 90 giây thì lấy câu kế tiếp (như server)
+      const pick = (fn) => { for (let i = 0; i < 6; i++) { const t = fn(); if (t && !(DishGame.isHeartLine(t) && now - heartAt < 90000)) return t; } return null; };
+      const playPick = () => {
+        playN += 1;
+        let t = playN % 2 === 0 ? DishGame.hostStateLine(st, s, playN) : null;
+        if (!t && (!giftAt || now - giftAt >= 15 * 60000) && playN % 5 === 4) {
+          t = Array.from({ length: 24 }, (_, i) => DishGame.hostLine(st, i)).find((l) => l && DishGame.isGiftLine(l)) || null;
+        }
+        return t || (playN % 3 === 0 ? DishGame.idleLine(st, s, playN * 3 + 1) : DishGame.hostLine(st, staticN++, { noGift: true }));
+      };
       if (demoAnnounce) { text = demoAnnounce; demoAnnounce = null; } // vòng mới: đọc đoạn mở vòng ngay
       else if (aiDue) { text = DishGame.HOST_AI_LINE; aiAt = now; }
       else if (s.warmup) {
         const swap = demoSwapTeam && now - demoWarmSwapAt < 8000 && now - demoSwapLineAt >= 30000;
         if (swap) demoSwapLineAt = now;
-        text = swap ? DishGame.warmupLine(st, s, 'swap', demoSwapCount++, demoSwapTeam) : DishGame.warmupLine(st, s, 'tick', demoWarmCount++);
+        text = swap ? DishGame.warmupLine(st, s, 'swap', demoSwapCount++, demoSwapTeam) : pick(() => DishGame.warmupLine(st, s, 'tick', demoWarmCount++));
         demoSwapTeam = null;
-      } else if (s.idleMs >= st.idleSeconds * 1000) text = DishGame.idleLine(st, s, idleN++);
-      else {
-        playN += 1;
-        if (playN % 2 === 0) text = DishGame.hostStateLine(st, s, playN);
-        if (!text && (!giftAt || now - giftAt >= 15 * 60000) && playN % 5 === 4) {
-          text = Array.from({ length: 24 }, (_, i) => DishGame.hostLine(st, i)).find((l) => l && DishGame.isGiftLine(l)) || null;
-        }
-        if (!text) text = playN % 3 === 0 ? DishGame.idleLine(st, s, playN * 3 + 1) : DishGame.hostLine(st, staticN++, { noGift: true });
-      }
+      } else if (s.idleMs >= st.idleSeconds * 1000) text = pick(() => DishGame.idleLine(st, s, idleN++));
+      else text = pick(playPick);
       if (!text) return;
       if (DishGame.isGiftLine(text)) giftAt = now;
+      if (DishGame.isHeartLine(text)) heartAt = now;
       demoWarmSend(text);
     }, 500);
   }
@@ -2086,6 +2090,7 @@ body.obs #notice { display: none; }
       lines.push({ html: `Comment <b class="vk">${kv}</b> chọn phe ${lv}, <b class="ck">${kc}</b> phe ${lc}`,
         parts: [`Comment <b class="vk">${kv}</b> chọn phe ${lv}`, `Comment <b class="ck">${kc}</b> chọn phe ${lc}`] });
     }
+    if (st.likesPerDish > 0) lines.push({ html: `Comment <b class="vk">${kv}</b> / <b class="ck">${kc}</b> rồi thả tim ❤️ ${fmt(st.likesPerDish)} tim = 1 chén` });
     lines.push({ html: 'Bên nhiều chén hơn phải rửa! 🧽', rule: true });
     // Chữ về quà: một câu nhẹ, không bảng giá, không mệnh lệnh, hiện thưa (1/7 lượt) để không thành kêu gọi tặng liên tục
     const base = lines.slice();
@@ -2316,7 +2321,7 @@ body.obs #notice { display: none; }
     }
 
     // Hướng dẫn
-    const key = JSON.stringify([st.dishesPerComment, st.dishesPerCoin, st.labels, st.keywords, st.rescueGifts]);
+    const key = JSON.stringify([st.dishesPerComment, st.dishesPerCoin, st.labels, st.keywords, st.rescueGifts, st.likesPerDish]);
     if (key !== howtoKey) { howtoKey = key; buildHowto(st); }
 
     // Bảng kết quả

@@ -807,3 +807,18 @@ test('Đoạn mở vòng: vòng 1 câu riêng, vòng sau xoay vòng, có ngườ
   assert.ok(later.some((l) => l.includes('Tỉ số đang Vợ 1, Chồng 2')));
   assert.ok(later.every((l) => !DishGame.isGiftLine(l)));
 });
+
+test('Thả tim: mặc định 10 tim = 1 chén cho phe đã comment; câu kêu gọi có số tim', () => {
+  assert.equal(sanitizeSettings({}).likesPerDish, 10);
+  const { e, st } = make({ likesPerDish: 10 });
+  e.handle({ type: 'chat', user: { id: 'a', name: 'A' }, text: 'ck' });
+  e.handle({ type: 'like', user: { id: 'a', name: 'A' }, count: 25 });
+  assert.equal(st().piles.ck, 1 + 2);
+  e.handle({ type: 'like', user: { id: 'a', name: 'A' }, count: 5 });
+  assert.equal(st().piles.ck, 4); // 30 tim = 3 chén
+  e.handle({ type: 'like', user: { id: 'b', name: 'B' }, count: 50 }); // chưa chọn phe: không tính
+  assert.equal(st().piles.vk, 0);
+  const S = sanitizeSettings({});
+  const lines = Array.from({ length: 20 }, (_, i) => DishGame.hostLine(S, i)).filter(DishGame.isHeartLine);
+  assert.ok(lines.some((l) => /cứ 10 tim là thêm một chén/.test(l)));
+});

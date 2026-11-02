@@ -52,7 +52,7 @@ Chỉnh ngay trong bảng điều khiển, lưu vào `data/settings.json`:
 | Mỗi người chỉ tính 1 comment trong | 1 giây (chống spam) |
 | Quà của người chưa chọn bên | Cộng cho người đang rửa |
 | Tự sang vòng mới | Bật, sau 10 giây |
-| Tim | 20 tim = 1 chén, tối đa 600 tim mỗi người mỗi vòng |
+| Tim | 10 tim = 1 chén cho phe người xem đã comment chọn, tối đa 600 tim mỗi người mỗi vòng |
 | Follow / share | 0 / 0 chén (tắt, vì thưởng điểm đổi follow dễ bị coi là trao đổi tương tác; bật được) |
 | Tên hai bên, từ khoá | Vợ (`vk`, `vợ`) / Chồng (`ck`, `chồng`), có preset nhanh |
 | Nhân vật, bối cảnh | Vợ + Chồng, bếp gia đình; nút cài sẵn đổi cả bộ, chọn riêng từng bên được |

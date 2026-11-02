@@ -133,6 +133,28 @@
     if (left <= 90) return `${L[lead]} đang phải rửa, còn ${left} giây, xem có đổi người không nha!`;
     return `${L[lead]} đang nhiều hơn ${L[other]} ${Math.abs(d)} chén nên đang phải rửa đó!`;
   }
+  // Lời dẫn lúc máy chơi (vòng khởi động): vừa bình luận vừa hướng dẫn cách chơi, chỉ mời comment / tim, không nhắc quà.
+  // kind: 'start' (máy bắt đầu), 'swap' (máy làm đổi người, team = người vào rửa), 'tick' (xoay vòng theo n).
+  function warmupLine(S, st, kind, n, team) {
+    const L = S.labels, K = S.keywords;
+    const per = S.dishesPerComment > 1 ? `${S.dishesPerComment} chén` : 'một chén';
+    if (kind === 'start') {
+      return `Máy chơi thử cho mọi người xem cách chơi nè! Comment ${K.vk[0]} là ${L.vk} thêm ${per}, comment ${K.ck[0]} là ${L.ck} thêm ${per}.`;
+    }
+    if (kind === 'swap' && TEAMS.includes(team)) {
+      return `Thấy chưa, ${L[team]} nhiều chén hơn nên phải vào rửa rồi đó! Bên nào nhiều chén hơn là bên đó rửa.`;
+    }
+    const lines = [
+      `Mỗi chữ ${K.vk[0]} là ${per} cho ${L.vk}, mỗi chữ ${K.ck[0]} là ${per} cho ${L.ck}. Đơn giản vậy thôi!`,
+      `Hiện ${L.vk} ${st.piles.vk} chén, ${L.ck} ${st.piles.ck} chén. Đây là máy chơi thôi, có người comment là tính thật liền!`,
+      `Muốn ${L.vk} thoát rửa chén thì comment ${K.ck[0]} dồn chén cho ${L.ck}, muốn ${L.ck} thoát thì comment ${K.vk[0]} nha!`,
+      'Chỉ cần một comment thật là vòng chơi thật bắt đầu, chén của máy sẽ xoá về không.',
+      `Hết giờ, bên nào còn nhiều chén hơn thì phải rửa. Comment ${K.vk[0]} hay ${K.ck[0]} để vào chơi nào!`,
+    ];
+    if (S.likesPerDish > 0) lines.push('Thả tim cũng được tính chén cho phe bạn đã chọn nha.');
+    return lines[((n || 0) % lines.length + lines.length) % lines.length];
+  }
+
   // Câu dẫn cố định thứ idx (vòng lại khi hết danh sách), đã điền biến; null nếu danh sách rỗng.
   // Nơi gọi tự xen câu hostStateLine (ví dụ mỗi câu thứ ba). opts.noGift: bỏ qua câu nhắc quà (đã nhắc gần đây).
   function hostLine(S, idx, opts) {
@@ -1061,5 +1083,5 @@
     return { handle, control, tick, getState, teamOfUser, getSupporters, exportState, importState };
   }
 
-  return { createEngine, detectTeam, cleanName, cleanText, stripDiacritics, sanitizeSettings, DEFAULTS, TEAMS, EVENT_LABELS, CHARACTERS, SCENES, TIKTOK_GIFTS, giftVi, HOST_LINES, HOST_AI_LINE, hostLine, hostStateLine, isGiftLine: (t) => GIFT_WORDS.test(String(t)) };
+  return { createEngine, detectTeam, cleanName, cleanText, stripDiacritics, sanitizeSettings, DEFAULTS, TEAMS, EVENT_LABELS, CHARACTERS, SCENES, TIKTOK_GIFTS, giftVi, HOST_LINES, HOST_AI_LINE, hostLine, hostStateLine, warmupLine, isGiftLine: (t) => GIFT_WORDS.test(String(t)) };
 });

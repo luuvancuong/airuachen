@@ -1829,6 +1829,7 @@ body.obs #notice { display: none; }
           hop();
           if (Date.now() - botSwapAt > 4000) { botSwapAt = Date.now(); showBanner('Đổi người!', `${label(fx.washer)} vào rửa · máy chơi`, fx.washer); Sfx.crash(); }
           else Sfx.clink();
+          demoWarmSpeak('swap', fx.washer);
           break;
         }
         showBanner('Đổi người!', `${label(fx.washer)} vào rửa`, fx.washer);
@@ -1836,7 +1837,10 @@ body.obs #notice { display: none; }
         hop();
         break;
       case 'warmup':
-        if (fx.on && !fx.reset) { showBanner('Khởi động!', 'Máy tự chơi, comment để vào chơi thật', 'ev'); Sfx.bell(); }
+        if (fx.on && !fx.reset) {
+          showBanner('Khởi động!', 'Máy tự chơi, comment để vào chơi thật', 'ev'); Sfx.bell();
+          demoWarmSpeak('start');
+        }
         break;
       case 'round':
         showBanner(`Vòng ${fx.round}`, `${label(fx.washer)} đứng rửa trước`, fx.washer);
@@ -1896,6 +1900,13 @@ body.obs #notice { display: none; }
     let count = 0, idx = 0, nextAt = Date.now() + 12000, aiAt = 0, giftAt = 0;
     setInterval(() => {
       const s = lastState;
+      // Máy đang chơi: bình luận + hướng dẫn khoảng 30 giây một câu (câu mở đầu / đổi người do handleFx đọc)
+      if (s && s.warmup && s.settings.hostEnabled && s.settings.ttsEnabled && aiAt) {
+        if (Date.now() - demoWarmAt < 30000 || Voice.busy || Voice.queue.length) return;
+        demoWarmAt = Date.now();
+        Host.push({ text: DishGame.warmupLine(s.settings, s, 'tick', demoWarmCount++) });
+        return;
+      }
       if (!s || !s.settings.hostEnabled || !s.settings.ttsEnabled || Date.now() < nextAt) return;
       if (s.phase !== 'ready' && s.phase !== 'running') return;
       if (Voice.busy || Voice.queue.length) { nextAt = Date.now() + 4000; return; }
@@ -2001,7 +2012,15 @@ body.obs #notice { display: none; }
       this.typing = setTimeout(step, 400);
     },
   };
-  let botSwapAt = 0;
+  let botSwapAt = 0, demoWarmAt = 0, demoWarmCount = 0;
+  // Bản demo (không server): lời dẫn lúc máy chơi do client tự đọc, cùng nhịp với server
+  function demoWarmSpeak(kind, team) {
+    const s = lastState;
+    if (SERVER || !s || !s.settings.hostEnabled || !s.settings.ttsEnabled) return;
+    if (kind === 'swap' && Date.now() - demoWarmAt < 15000) return;
+    demoWarmAt = Date.now();
+    Host.push({ text: DishGame.warmupLine(s.settings, s, kind, demoWarmCount, team) });
+  }
   // Streamer tự chọn phe (người thật, ghi rõ là Streamer)
   function streamerToast(fx) {
     const el = document.createElement('div');

@@ -40,7 +40,7 @@ Lúc mới mở live chưa ai tương tác, game **không** tạo comment, quà 
 
 - Nhân vật nhún nhảy, mèo hay chim đi ngang, nước bắn, kèm một điện thoại có nhãn **“Ví dụ”** gõ thử từ khoá. Đĩa trong ví dụ không được cộng vào đâu.
 - Vòng khởi động có nhãn **“🤖 Máy tự chơi”**: máy tự cộng chén cho vui mắt, không có tên người xem, không đọc lời cảm ơn, không tính tỉ số. Có người chơi thật là vòng này xoá về 0.
-- Lời dẫn nói thật: “Chưa ai chọn phe, bạn là người đầu tiên đó!”.
+- Lời dẫn nói thật: “Chưa ai chọn phe, bạn là người đầu tiên đó!”. Lúc máy chơi, giọng đọc vừa bình luận vừa hướng dẫn cách chơi khoảng 30 giây một câu (“Máy chơi thử cho mọi người xem cách chơi nè…”, “Thấy chưa, Chồng nhiều chén hơn nên phải vào rửa…”), chỉ mời comment và thả tim, không nhắc quà.
 - Nút **“🎙️ Streamer vào phe…”**: bạn tự chơi dưới tên “Streamer”.
 - Đang kết nối live thì nút giả lập bị khoá, để bạn không vô tình tạo người xem giả.
 

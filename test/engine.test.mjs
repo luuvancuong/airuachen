@@ -753,3 +753,14 @@ test('Lời dẫn lúc máy chơi: mở đầu hướng dẫn, đổi người g
   assert.ok(ticks.some((l) => l.includes('Anh 3 chén, Em 5 chén')));
   assert.ok(ticks.every((l) => !DishGame.isGiftLine(l)));
 });
+
+test('Từ cấm có sẵn: chặn tục / lách chữ / cờ bạc, không chặn nhầm tên thường', () => {
+  const bad = ['Đ.ị.t mẹ', 'v c l', 'thằng chó Hùng', 'shop nhà cái uy tín', 'Lan 18+', 'dmm', 'Fuck', 'óc chó', 'Tài Xỉu Online', 'zalo 0909', 'FB88 VIP'];
+  const ok = ['Lồng đèn', 'Các bạn', 'Dâu tây', 'Hương88', 'Lan Vy', 'Minh Đức', 'Cá vàng', 'Đá bóng', 'Vợ yêu', 'Chó Mực', 'Con Nguyên', 'Đồ ngủ xinh'];
+  for (const n of bad) assert.equal(DishGame.isBannedName(n), true, n);
+  for (const n of ok) assert.equal(DishGame.isBannedName(n), false, n);
+  assert.equal(DishGame.isBannedName('Bé Mập', ['mập']), true); // từ streamer thêm
+  const { e, st } = make({});
+  e.handle({ type: 'chat', user: { id: 'x', name: 'Vcl Hùng' }, text: 'vk' });
+  assert.equal(st().top.vk[0].name, 'Một bạn');
+});

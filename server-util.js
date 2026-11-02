@@ -143,14 +143,13 @@ export function supportersCsv(list, labels) {
 }
 
 // ---------- Câu đọc ----------
-// Từ tục thường gặp: tên chứa từ này thì đọc là "bạn".
-const BAD_WORDS = new Set(['địt', 'đụ', 'lồn', 'buồi', 'cặc', 'đĩ', 'đéo', 'dm', 'đm', 'dcm', 'đcm', 'vcl', 'vl', 'clm', 'cc', 'cl', 'dmm', 'đmm', 'fuck', 'shit']);
+// Tên chứa từ cấm (danh sách có sẵn trong engine + từ streamer thêm), link, số điện thoại thì đọc là "bạn".
 // Làm sạch chữ đưa sang Vbee: chỉ giữ chữ, số, khoảng trắng và vài dấu câu; cắt độ dài.
 export function speakable(v, max = 20, fallback = 'bạn') {
   let s = (typeof v === 'string' ? v : '').normalize('NFKC').normalize('NFC');
   s = s.replace(/[^\p{L}\p{M}\p{N} .,'-]+/gu, ' ').replace(/\s+/g, ' ').trim();
   const tokens = s.toLowerCase().split(/[^\p{L}\p{M}\p{N}]+/u).filter(Boolean);
-  if (!tokens.length || tokens.some((t) => BAD_WORDS.has(t) || extraBanned.has(t))) return fallback;
+  if (!tokens.length || globalThis.DishGame.isBannedName(s, [...extraBanned])) return fallback; // từ cấm có sẵn (engine) + từ streamer thêm
   if (/https?|www|\.(com|vn|net|me|io)\b|@|\d{5,}/i.test(typeof v === 'string' ? v : '')) return fallback; // link, số điện thoại, tag
   const chars = Array.from(s);
   return chars.length > max ? chars.slice(0, max).join('').trim() : s;

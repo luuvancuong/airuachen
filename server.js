@@ -370,7 +370,8 @@ function userOf(u) {
 const welcomeLimit = createRateLimit(1, 4000);
 function welcome(user) {
   if (!settings.welcomeEnabled || !welcomeLimit()) return;
-  broadcast({ t: 'fx', fx: { type: 'join', name: DishGame.cleanName(user.name), team: engine.teamOfUser(user.id) } });
+  const name = DishGame.isBannedName(user.name, settings.bannedWords) ? 'Một bạn' : DishGame.cleanName(user.name);
+  broadcast({ t: 'fx', fx: { type: 'join', name, team: engine.teamOfUser(user.id) } });
 }
 
 async function disconnectTikTok() {

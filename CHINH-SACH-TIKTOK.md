@@ -29,7 +29,7 @@ Trò chơi này đúng là có hai phe. Vì vậy **phần quan trọng nhất l
 - **Giờ vàng chỉ nhân comment và tim,** không nhân quà, để không thành “khuyến mãi quà có hạn giờ”.
 - **Follow và share mặc định không cộng chén.** Thưởng điểm để đổi lấy follow dễ bị coi là trao đổi tương tác. Câu mời follow hay share vẫn được đọc nhưng không kèm phần thưởng. Bật lại ở mục “Tim, follow, share” nếu bạn chấp nhận rủi ro.
 - **Cảm ơn quà:** mọi quà đều được cảm ơn, không phân tầng theo số xu, tối đa 1 câu mỗi 10 giây. Quà tới dồn dập thì gộp thành “Cảm ơn A, B và n bạn nữa”. Quà combo chỉ được cảm ơn một lần.
-- **Lọc tên trước khi đọc và hiện:** tên có link, số điện thoại, tag hay từ tục thì đọc là “bạn”. Bạn tự thêm từ cấm ở mục “Từ cấm thêm”. Lưu ý: bạn vẫn chịu trách nhiệm cho mọi thứ công cụ đọc hay hiện ra.
+- **Lọc tên trước khi đọc và hiện:** có sẵn danh sách từ cấm gồm chửi tục, viết tắt và kiểu lách chữ (“đ.ị.t”, “v c l”), xúc phạm, quảng cáo cờ bạc và lừa đảo, nội dung người lớn, ma tuý. Tên chứa các từ này, hoặc có link, số điện thoại, tag, thì hiện là “Một bạn” và đọc là “bạn”. Bạn tự thêm từ riêng ở mục “Từ cấm thêm”. Lưu ý: bạn vẫn chịu trách nhiệm cho mọi thứ công cụ đọc hay hiện ra.
 - **Nhạc nền:** tự tổng hợp trong trình duyệt, không dùng bài của ai, nên không vướng bản quyền.
 - **Không có cờ bạc:** không giải thưởng, sự kiện ngẫu nhiên không gắn với quà, bình chọn hình phạt chỉ bằng comment (quà không mua được phiếu).
 - **Tắt nhanh lời dẫn:** nút “Tắt lời dẫn” ở mục Vòng chơi, dùng khi bạn đang nói.

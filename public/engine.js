@@ -210,6 +210,47 @@
   }
   // Chuẩn hoá chuỗi người gõ: chữ kiểu toán học về chữ thường, bỏ zero-width.
   const normInput = (s) => str(s).normalize('NFKC').normalize('NFC').replace(/\p{Cf}+/gu, '');
+  // ---------- Từ cấm có sẵn (tên người xem hiện trên màn hình và được đọc) ----------
+  // Từ ngắn hoặc dễ trùng nghĩa: chỉ khớp nguyên từ, giữ dấu (để “Các bạn”, “Lồng đèn” không bị chặn nhầm).
+  const BANNED_WORDS = new Set([
+    // tục, chửi (kể cả viết tắt / lách chữ)
+    'địt', 'đjt', 'djt', 'đụ', 'đéo', 'lồn', 'loz', 'buồi', 'cặc', 'cak', 'đĩ', 'đỉ', 'điếm', 'cave',
+    'đm', 'đmm', 'dm', 'dmm', 'đcm', 'dcm', 'đkm', 'dkm', 'vcl', 'vkl', 'vcc', 'vl', 'clm', 'cmm', 'cc', 'cl',
+    'chịch', 'nứng', 'dâm', 'sex', 'xxx', 'porn', 'jav',
+    // tiếng Anh
+    'fuck', 'fck', 'fuk', 'shit', 'bitch', 'dick', 'pussy', 'cunt', 'nigga', 'nigger', 'faggot', 'slut', 'whore',
+    // cờ bạc, lừa đảo, kéo sang kênh khác
+    'casino', 'kubet', 'fb88', 'w88', '188bet', '789bet', '8xbet', 'jun88', 'sv388', 'hi88', 'f8bet', 'shbet', 'nhacai',
+    'zalo', 'telegram', 'tele',
+  ]);
+  // Cụm từ: khớp trọn từ (sau khi gộp khoảng trắng / dấu chấm / gạch), để “con ngu” không chặn “Con Nguyên”.
+  const BANNED_PHRASES = [
+    'địt mẹ', 'đụ má', 'đụ mẹ', 'mẹ mày', 'má mày', 'bố mày', 'cha mày', 'con đĩ', 'thằng chó', 'con chó', 'óc chó', 'chó đẻ',
+    'súc vật', 'óc lợn', 'đồ ngu', 'thằng ngu', 'con ngu',
+    'nhà cái', 'cá độ', 'cá cược', 'tài xỉu', 'lô đề', 'xóc đĩa', 'nổ hũ', 'nạp thẻ', 'kiếm tiền online', 'việc nhẹ lương cao',
+    'cho vay', 'vay tiền', 'gái gọi', 'gái xinh', 'chat sex', 'ma túy', 'ma tuý', 'cỏ mỹ', 'bay lắc', '18+',
+  ];
+  // true nếu tên chứa từ cấm có sẵn hoặc từ cấm streamer thêm (extra).
+  function isBannedName(name, extra) {
+    const s = normInput(name).toLowerCase();
+    if (!s) return false;
+    const raw = s.replace(/[\s._\-*~|]+/g, ' ');
+    const parts = raw.split(/[^\p{L}\p{M}\p{N}+]+/u).filter(Boolean);
+    // Ghép các chữ cái lẻ liền nhau (“đ.ị.t”, “v c l”) thành một từ để bắt kiểu lách
+    const tokens = [];
+    for (let i = 0; i < parts.length; i++) {
+      if (Array.from(parts[i]).length === 1) {
+        let w = parts[i];
+        while (i + 1 < parts.length && Array.from(parts[i + 1]).length === 1) w += parts[++i];
+        tokens.push(w);
+      } else tokens.push(parts[i]);
+    }
+    if (tokens.some((t) => BANNED_WORDS.has(t) || BANNED_WORDS.has(t.replace(/\+/g, '')))) return true;
+    const joined = ` ${tokens.join(' ')} `;
+    if (BANNED_PHRASES.some((p) => joined.includes(` ${p} `))) return true;
+    if (Array.isArray(extra) && extra.some((w) => w && (tokens.includes(w) || raw.includes(w)))) return true;
+    return false;
+  }
   // Khoá so sánh tên quà: không phân biệt hoa thường, bỏ dấu.
   const rawGiftKey = (s) => stripDiacritics(normInput(s)).toLowerCase().replace(/\s+/g, ' ').trim();
   // Tên tiếng Việt và tên TikTok của cùng một quà cho ra cùng một khoá (cài “Kem ốc quế” vẫn khớp quà “Ice Cream Cone”).
@@ -691,10 +732,7 @@
     function handleEvent(ev) {
       if (!ev || typeof ev !== 'object') return false;
       const user = normUser(ev.user);
-      if (S.bannedWords.length) {
-        const low = user.name.toLowerCase();
-        if (S.bannedWords.some((w) => low.includes(w))) user.name = 'Một bạn';
-      }
+      if (isBannedName(user.name, S.bannedWords)) user.name = 'Một bạn';
       const t = now();
 
       if (ev.type === 'chat') {
@@ -1083,5 +1121,5 @@
     return { handle, control, tick, getState, teamOfUser, getSupporters, exportState, importState };
   }
 
-  return { createEngine, detectTeam, cleanName, cleanText, stripDiacritics, sanitizeSettings, DEFAULTS, TEAMS, EVENT_LABELS, CHARACTERS, SCENES, TIKTOK_GIFTS, giftVi, HOST_LINES, HOST_AI_LINE, hostLine, hostStateLine, warmupLine, isGiftLine: (t) => GIFT_WORDS.test(String(t)) };
+  return { createEngine, detectTeam, cleanName, cleanText, stripDiacritics, sanitizeSettings, DEFAULTS, TEAMS, EVENT_LABELS, CHARACTERS, SCENES, TIKTOK_GIFTS, giftVi, isBannedName, HOST_LINES, HOST_AI_LINE, hostLine, hostStateLine, warmupLine, isGiftLine: (t) => GIFT_WORDS.test(String(t)) };
 });

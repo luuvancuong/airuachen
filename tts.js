@@ -50,7 +50,9 @@ export function createTts(o = {}) {
   const maxFiles = o.maxFiles || 200;
   const configured = Boolean(appId && token && dir);
 
-  let syncBroken = mode === 'async';
+  // Gói Vbee không có sync thì ghi nhớ vào file đánh dấu, lần mở server sau đi thẳng async (không tốn request thử)
+  const noSyncFile = dir ? path.join(dir, '.no-sync') : null;
+  let syncBroken = mode === 'async' || (mode === 'auto' && !!noSyncFile && fs.existsSync(noSyncFile));
   let disabled = null;            // lỗi không thể tự hết (sai khoá, hết credit)
   const reported = new Set();     // mỗi loại lỗi chỉ báo một lần
   const queue = [];
@@ -125,8 +127,12 @@ export function createTts(o = {}) {
         if (e.fatal || e.code === 'TIMEOUT' || e.code === 'NETWORK') throw e;
         if (e.status === 429) { await sleep(2000); return syncTts(text, voice, deadline); }
         if (mode === 'sync') throw e;
-        syncBroken = true; // gói/giọng không hỗ trợ sync: từ giờ dùng async
-        log(`[tts] sync không dùng được (${e.message}), chuyển sang async`);
+        // Gói/giọng không hỗ trợ sync: từ giờ dùng async. Vài câu đầu gửi cùng lúc có thể cùng gặp lỗi này: chỉ báo một lần.
+        if (!syncBroken) {
+          syncBroken = true;
+          log(`[tts] gói Vbee không có chế độ sync (${e.message}), dùng async (mỗi câu mới ~2–3 giây). Đã ghi nhớ, lần sau không thử lại.`);
+          try { fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(noSyncFile, ''); } catch { /* bỏ qua */ }
+        }
       }
     }
     try { return await asyncTts(text, voice, deadline); } catch (e) {

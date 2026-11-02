@@ -500,3 +500,29 @@ test('speakable: không đọc link, số điện thoại, tag và từ cấm c�
   assert.equal(speakable('Bé xấu'), 'bạn');
   setBannedWords([]);
 });
+
+test('tts: gói Vbee không có sync thì chỉ báo một lần, ghi nhớ để lần sau đi thẳng async', async () => {
+  const { createTts } = await import('../tts.js');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tts-nosync-'));
+  const calls = [];
+  const fakeFetch = async (url, init) => {
+    const body = init && init.body ? JSON.parse(init.body) : null;
+    calls.push(body ? body.mode : 'GET');
+    const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { 'content-type': 'application/json' } });
+    if (body && body.mode === 'sync') return json({ error: { code: 'BAD_REQUEST', message: 'This feature is not supported in user package' } }, 400);
+    if (body && body.mode === 'async') return json({ requestId: `r${calls.length}` });
+    if (String(url).includes('/requests/')) return json({ status: 'COMPLETED', audioLink: 'http://audio/x.mp3' });
+    return new Response(new Uint8Array([0x49, 0x44, 0x33, 1, 2, 3]), { status: 200 });
+  };
+  const logs = [];
+  const mk = () => createTts({ appId: 'a', token: 't', dir, fetch: fakeFetch, log: (m) => logs.push(m), pollMs: 1, sleep: async () => {} });
+  const t1 = mk();
+  const r = await Promise.all(['một', 'hai', 'ba'].map((x) => t1.say(`Câu ${x}`, 'v')));
+  assert.ok(r.every(Boolean));
+  assert.equal(logs.filter((m) => /không có chế độ sync/.test(m)).length, 1);
+  assert.ok(fs.existsSync(path.join(dir, '.no-sync')));
+  calls.length = 0;
+  const t2 = mk();
+  assert.ok(await t2.say('Câu bốn', 'v'));
+  assert.ok(!calls.includes('sync')); // lần sau không thử sync nữa
+});

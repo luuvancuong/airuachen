@@ -1827,7 +1827,7 @@ body.obs #notice { display: none; }
         if (fx.bot) {
           // Máy chơi thử cũng đổi người như thật, banner ghi rõ là máy; tối đa 1 banner mỗi 4 giây
           hop();
-          if (Date.now() - botSwapAt > 4000) { botSwapAt = Date.now(); showBanner('Đổi người!', `${label(fx.washer)} vào rửa · máy chơi thử`, fx.washer); Sfx.crash(); }
+          if (Date.now() - botSwapAt > 4000) { botSwapAt = Date.now(); showBanner('Đổi người!', `${label(fx.washer)} vào rửa · máy chơi`, fx.washer); Sfx.crash(); }
           else Sfx.clink();
           break;
         }
@@ -1927,7 +1927,7 @@ body.obs #notice { display: none; }
       phone.classList.toggle('on', (want || !!s.warmup) && (s.piles.vk || 0) < 12);
       if (phone.dataset.mode !== (s.warmup ? 'bot' : 'demo')) {
         phone.dataset.mode = s.warmup ? 'bot' : 'demo';
-        phone.querySelector('.dp-tag').textContent = s.warmup ? '🤖 Máy chơi thử' : 'Ví dụ';
+        phone.querySelector('.dp-tag').textContent = s.warmup ? '🤖 Máy chơi' : 'Ví dụ';
         phone.querySelector('.dp-who').textContent = s.warmup ? 'Máy:' : 'Bạn:';
       }
       if (want !== this.on) {

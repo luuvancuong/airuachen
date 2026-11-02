@@ -1,0 +1,22 @@
+{
+  "name": "ai-rua-bat",
+  "version": "1.0.0",
+  "description": "Mini-game TikTok Live: Ai rửa chén?",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "build:demo": "node scripts/build-demo.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "tiktok-live-connector": "2.5.0",
+    "ws": "8.22.1"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "private": true
+}

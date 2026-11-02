@@ -2596,19 +2596,21 @@ body.obs #notice { display: none; }
     Voice.here = OBS || (pref === null ? !SERVER : pref === '1');
   }
   ttsHere.checked = Voice.here;
-  ttsHere.addEventListener('change', () => {
-    Voice.here = ttsHere.checked;
+  function setVoiceHere(on) {
+    Voice.here = !!on;
+    ttsHere.checked = Voice.here;
     try { localStorage.setItem('ai-rua-bat:tts-here', Voice.here ? '1' : '0'); } catch (e) { /* bỏ qua */ }
     if (!Voice.here) Voice.stop();
     syncMusic();
     voiceKey = '';
     if (lastState) renderVoice(lastState);
-  });
+  }
+  ttsHere.addEventListener('change', () => setVoiceHere(ttsHere.checked));
   $('#btn-tts-test').addEventListener('click', () => {
     Sfx.wake();
     if (SERVER) {
       sendControl('ttsTest');
-      if (!Voice.here) showNotice('Đã gửi câu đọc thử tới overlay OBS. Bật “Phát giọng đọc ở tab này” để nghe ở đây.');
+      if (!Voice.here) showNotice('Đã gửi câu đọc thử tới overlay OBS. Bấm “Bật âm thanh” để nghe ngay trên tab này.');
       return;
     }
     if (!lastState || !lastState.settings.ttsEnabled) { showNotice('Giọng đọc đang tắt trong Luật chơi.'); return; }
@@ -2668,10 +2670,17 @@ body.obs #notice { display: none; }
     syncMusic();
     soundBtn.textContent = soundWanted ? 'Tắt âm thanh' : 'Bật âm thanh';
     $('#sound-note').textContent = SERVER
-      ? 'Âm thanh phát từ OBS. Chỉ bật ở đây nếu bạn muốn nghe thử trên máy này.'
+      ? 'Bật để nghe giọng đọc, nhạc nền và tiếng hiệu ứng ngay trên tab này. Người xem live chỉ nghe tiếng từ OBS, nên bật ở đây không ảnh hưởng stream.'
       : 'Tiếng chén, tiếng quà và tiếng đổi người được tạo ngay trong trình duyệt, không cần file nhạc.';
   }
-  soundBtn.addEventListener('click', () => { soundWanted = !soundWanted; Sfx.ensure(); syncSound(); });
+  // Bảng điều khiển: một nút bật / tắt cả tiếng hiệu ứng, giọng đọc và nhạc nền ở tab này (ô “Phát giọng đọc” vẫn chỉnh riêng được)
+  soundBtn.addEventListener('click', () => {
+    soundWanted = !soundWanted;
+    Sfx.ensure();
+    if (!OBS) setVoiceHere(soundWanted);
+    syncSound();
+    if (soundWanted && SERVER) sendControl('ttsTest'); // đọc thử một câu để biết tiếng đã ra
+  });
   // Không dùng once: AudioContext có thể bị treo lại sau đó
   window.addEventListener('pointerdown', () => { if (soundWanted) Sfx.ensure(); else Sfx.wake(); });
   if (OBS) Sfx.ensure();
